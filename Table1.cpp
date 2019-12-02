@@ -78,7 +78,7 @@ void savetoless(int leng, string traduc, int liemp, string ruta, char* memblock,
 	string linhex = int_to_hex(poshex);
 	poshex = stoi(linhex, 0, 16);
 	poshex = poshex - 16;
-	int startingbit = memblock[findice + 2];
+	int startingbit = memblock[findice - 2];
 	string valres = {'\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0' , '\0' , '\0' , '\0' , '\0' , '\0' , '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0'}; //Para añadir ceros, no se me ocurre nada mejor
 	if (leng > 15) { // Si la frase original es mayor que 1 linea
 		if (leng > 31) { // Si la frase original es mayor que 2 lineas
@@ -107,14 +107,23 @@ void savetoless(int leng, string traduc, int liemp, string ruta, char* memblock,
 					int t = 4;
 					char newposhex = startingbit;
 					while (i < (lineas - linusu)) {
-						int tmp = memblock[findice + t - 5] - 1;
-						int tmpdos = memblock[findice + t - 1] - 1;
+						int tmp = memblock[findice + t - 5];
+						int tmpdos = memblock[findice + t - 1];
 						string tempura = int_to_hex(tmp);
 						tmp = stoi(tempura, 0, 16);
+						if (i != 1) {
+							tmp = tmp - 16;
+						}
 						string tempurados = int_to_hex(tmpdos);
 						tmpdos = stoi(tempurados, 0, 16);
-
-						if (tmp > tmpdos&& i != 1) {
+						tmpdos = tmpdos - 16;
+						if (tmp < 0) {
+							tmp = tmp + 256;
+						}
+						if (tmpdos < 0) {
+							tmpdos = tmpdos + 256;
+						}
+						if (tmp > tmpdos) {
 							newposhex++;
 						}
 						char dirindi = poshex;
@@ -173,14 +182,23 @@ void savetoless(int leng, string traduc, int liemp, string ruta, char* memblock,
 					char newposhex = startingbit;
 					poshex = poshex - 16;
 					while (i < (lineas - linusu)) {
-						int tmp = memblock[findice + t - 5] - 1;
-						int tmpdos = memblock[findice + t - 1] - 1;
+						int tmp = memblock[findice + t - 5];
+						int tmpdos = memblock[findice + t - 1];
 						string tempura = int_to_hex(tmp);
 						tmp = stoi(tempura, 0, 16);
+						if (i != 1) {
+							tmp = tmp - 32;
+						}
 						string tempurados = int_to_hex(tmpdos);
 						tmpdos = stoi(tempurados, 0, 16);
-
-						if (tmp > tmpdos&& i != 1) {
+						tmpdos = tmpdos - 32;
+						if (tmp < 0) {
+							tmp = tmp + 256;
+						}
+						if (tmpdos < 0) {
+							tmpdos = tmpdos + 256;
+						}
+						if (tmp > tmpdos) {
 							newposhex++;
 						}
 						char dirindi = poshex;
@@ -256,13 +274,23 @@ void savetoless(int leng, string traduc, int liemp, string ruta, char* memblock,
 				int t = 4;
 				char newposhex = startingbit;
 				while (i < (lineas - linusu)) {
-					int tmp = memblock[findice + t - 5] - 1;
-					int tmpdos = memblock[findice + t - 1] - 1;
+					int tmp = memblock[findice + t - 5];
+					int tmpdos = memblock[findice + t - 1];
 					string tempura = int_to_hex(tmp);
 					tmp = stoi(tempura, 0, 16);
+					if (i != 1) {
+						tmp = tmp - 16;
+					}
 					string tempurados = int_to_hex(tmpdos);
 					tmpdos = stoi(tempurados, 0, 16);
-					if (tmp > tmpdos && i != 1) { // Si el valor de la posicion 1 (empezando izquierda) de la entrada de indice anterior es mayor que la actual, incrementar el valor con posicion 2
+					tmpdos = tmpdos - 16;
+					if (tmp < 0) {
+						tmp = tmp + 256;
+					}
+					if (tmpdos < 0) {
+						tmpdos = tmpdos + 256;
+					}
+					if (tmp > tmpdos) {
 						newposhex++;
 					}
 					char dirindi = poshex;
@@ -344,7 +372,7 @@ void savetomore(int leng, string traduc, int liemp, string ruta, char* memblock,
 	string linhex = int_to_hex(poshex);
 	poshex = stoi(linhex, 0, 16);
 	poshex = poshex + 16;
-	int startingbit = memblock[findice + 2];
+	int startingbit = memblock[findice - 2];
 	string valres = { '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0' , '\0' , '\0' , '\0' , '\0' , '\0' , '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0' }; //Para añadir ceros, no se me ocurre nada mejor
 	if (leng > 15 && leng < 32) { // Si la frase original ocupa 2 lineas
 		if (nleng > 47) {
@@ -379,10 +407,19 @@ void savetomore(int leng, string traduc, int liemp, string ruta, char* memblock,
 					int tmpdos = memblock[findice + t - 1];
 					string tempura = int_to_hex(tmp);
 					tmp = stoi(tempura, 0, 16);
+					if (i != 1) {
+						tmp = tmp + 16;
+					}
 					string tempurados = int_to_hex(tmpdos);
 					tmpdos = stoi(tempurados, 0, 16);
-
-					if (tmp > tmpdos&& i != 1) {
+					tmpdos = tmpdos + 16;
+					if (tmp > 255) {
+						tmp = tmp - 256;
+					}
+					if (tmpdos > 255) {
+						tmpdos = tmpdos - 256;
+					}
+					if (tmp > tmpdos) {
 						newposhex++;
 					}
 					char dirindi = poshex;
@@ -484,10 +521,19 @@ void savetomore(int leng, string traduc, int liemp, string ruta, char* memblock,
 					int tmpdos = memblock[findice + t - 1];
 					string tempura = int_to_hex(tmp);
 					tmp = stoi(tempura, 0, 16);
+					if (i != 1) {
+						tmp = tmp + 16;
+					}
 					string tempurados = int_to_hex(tmpdos);
 					tmpdos = stoi(tempurados, 0, 16);
-
-					if (tmp > tmpdos&& i != 1) {
+					tmpdos = tmpdos + 16;
+					if (tmp > 255) {
+						tmp = tmp - 256;
+					}
+					if (tmpdos > 255) {
+						tmpdos = tmpdos - 256;
+					}
+					if (tmp > tmpdos) {
 						newposhex++;
 					}
 					char dirindi = poshex;
@@ -549,10 +595,19 @@ void savetomore(int leng, string traduc, int liemp, string ruta, char* memblock,
 					int tmpdos = memblock[findice + t - 1];
 					string tempura = int_to_hex(tmp);
 					tmp = stoi(tempura, 0, 16);
+					if (i != 1) {
+						tmp = tmp + 32;
+					}
 					string tempurados = int_to_hex(tmpdos);
 					tmpdos = stoi(tempurados, 0, 16);
-
-					if (tmp > tmpdos&& i != 1) {
+					tmpdos = tmpdos + 32;
+					if (tmp > 255) {
+						tmp = tmp - 256;
+					}
+					if (tmpdos > 255) {
+						tmpdos = tmpdos - 256;
+					}
+					if (tmp > tmpdos) {
 						newposhex++;
 					}
 					char dirindi = poshex;

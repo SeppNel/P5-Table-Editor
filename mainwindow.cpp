@@ -16,6 +16,8 @@ vector<string> juntohex;
 int fin;
 int lineas;
 int currentline;
+bool fileopen = false;
+bool listitemclicked = false;
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -31,10 +33,15 @@ MainWindow::~MainWindow()
 
 }
 
+void MainWindow::keyPressEvent(QKeyEvent* pe)
+{
+if(pe->key() == Qt::Key_Return) on_save_clicked();
+}
+
 string int_to_hex(int i);
 void savetosame(int leng, string traduc, int liemp, string ruta, char* memblock, int fin);
-void savetoless(int leng, string traduc, int liemp, string ruta, char* memblock, int fin, int bileng, int linusu, vector<string> juntohex, int lineas);
-void savetomore(int leng, string traduc, int liemp, string ruta, char* memblock, int fin, int bileng, int linusu, vector<string> juntohex, int lineas);
+void savetoless(int leng, string traduc, int liemp, string ruta, char* memblock, int fin, int bileng, int linusu, int lineas);
+void savetomore(int leng, string traduc, int liemp, string ruta, char* memblock, int fin, int bileng, int linusu, int lineas);
 
 void MainWindow::on_actionOpen_triggered()
 {
@@ -42,17 +49,18 @@ void MainWindow::on_actionOpen_triggered()
     ruta = filename.toUtf8().constData();
     ui->list->clear();
     openfile(ruta);
+    fileopen = true;
 
 }
 
 
 string int_to_hex(int i)
 {
-    //Convierte el stream a string
+    //Convert an int to a string with its hex value
     stringstream stream;
     stream << hex << i;
     string result(stream.str());
-    //Comprueba dependiendo de la longitud que hacer
+    //Then adapt the format to be 2 characters
     if (result.length() == 1) {
         result.insert(result.begin(), '0');
         return result;
@@ -80,26 +88,24 @@ void MainWindow::openfile(string ruta){
     ifstream file;
         file.open(ruta, ios::binary);
         if (file.is_open()) {
-            //Direccion del principio
-            streampos start = file.tellg();
-            //Direccion del final
+            //Save last address
             file.seekg(0, std::ios::end);
             fin = file.tellg();
-            //Volver al principio
+            //Go back to the start
             file.seekg(0, std::ios::beg);
-            // Memblock indica la direccion y fin el tamaño
+            // Memblock holds all the addreses of the file
             memblock = new char [fin];
             file.read(memblock, fin);
             file.close();
 
-            //Guardar numero de lineas
+            //Save the number of lines
             int lin = memblock[15];
             string linhex = int_to_hex(lin);
-            lineas = stoi(linhex, 0, 16); //Pasar de hex string a decimal int
-            juntohex.clear();
+            lineas = stoi(linhex, 0, 16); //Convert hex string to int (maybe this is not necesary but ¯\_(ツ)_/¯)
+            juntohex.clear(); //Clear the array with the index addreses in case the user opens a new file
             int i = 0;
-            int offset = 16; // Posicion inicia del indice
-            // Bucle para coger todos los indices
+            int offset = 16; // Address where the index starts
+            // Get all index and put it in  juntohex
             while( i < lineas ){
                 int uno = memblock[offset];
                 string suno = int_to_hex(uno);
@@ -116,7 +122,7 @@ void MainWindow::openfile(string ruta){
                 stringstream test;
                 test << suno << sdos << stres << scuatro;
                 string tojunto(test.str());
-                juntohex.push_back(tojunto); //Aqui se añade el valor unido al array en el vector
+                juntohex.push_back(tojunto);
                 offset++;
                 i++;
             }
@@ -125,29 +131,28 @@ void MainWindow::openfile(string ruta){
             linusu = 0;
             vector<string> juntotext;
             stringstream test2;
-            //Mirar la posicion que especifica la longitud y la guardo en leng
             i = 0;
             while(i < lineas){
                 int jint = stoi(juntohex[linusu], 0, 16);
-                int bileng = jint + 7;
+                int bileng = jint + 7; //Address position that holds the lenght of the current line
                 int leng = memblock[bileng];
                 int listart = jint + 16;
                 int index = 0;
                 while (index < leng) {
                     char filine = memblock[listart];
 
-                    test2 << filine;
+                    test2 << filine; //Store all characters of the line and save them
 
                     listart++;
                     index++;
                 }
-                string tojuntotext(test2.str());
+                string tojuntotext(test2.str()); //String that holds the current full line
                 QString Qjuntext = QString::fromUtf8(tojuntotext.c_str());
                 QString array[lineas];
-                array[i].append(Qjuntext);
-                ui->list->addItem(array[i]);
+                array[i].append(Qjuntext); //Append the current line to the array
+                ui->list->addItem(array[i]); //Add item to the listview
                 test2.str("");
-                test2.clear();
+                test2.clear(); //Clear "test2" so it can hold the next line
                 linusu++;
                 i++;
 
@@ -162,12 +167,20 @@ void MainWindow::on_list_itemClicked(QListWidgetItem *item)
     currentline = ui->list->currentRow();
     string lintoed = lintotmp.toUtf8().constData();
     ui->textedit->setText(lintotmp); // Add the selected item to the TextEdit
+    listitemclicked = true;
 }
 
 void MainWindow::on_save_clicked()
 {
+    if (fileopen == false || listitemclicked == false){
+        QMessageBox msgBox;
+        msgBox.setText("You need to open and select a line.");
+        msgBox.exec();
+        return;
+    }
+
     QString translation = ui->textedit->text();
-    string traduc = translation.toUtf8().constData();
+    string traduc = translation.toUtf8().constData(); //Get the content of textedit and convert it to string
 
     int linusu = currentline;
     int jint = stoi(juntohex[linusu], 0, 16);
@@ -175,7 +188,7 @@ void MainWindow::on_save_clicked()
     int leng = memblock[bileng];
 
     int liemp = jint + 16;
-    if ((traduc.length() == 0) | traduc == "f") {
+    if ((traduc.length() == 0)) {
         exit(EXIT_SUCCESS);
     }
     traduc = traduc + '\0';
@@ -186,12 +199,12 @@ void MainWindow::on_save_clicked()
         openfile(ruta);
     }
     else if (newleng < leng) {
-        savetoless(leng, traduc, liemp, ruta, memblock, fin, bileng, linusu, juntohex, lineas);
+        savetoless(leng, traduc, liemp, ruta, memblock, fin, bileng, linusu, lineas);
         ui->list->clear();
         openfile(ruta);
     }
     else {
-        savetomore(leng, traduc, liemp, ruta, memblock, fin, bileng, linusu, juntohex, lineas);
+        savetomore(leng, traduc, liemp, ruta, memblock, fin, bileng, linusu, lineas);
         ui->list->clear();
         openfile(ruta);
     }
@@ -214,7 +227,7 @@ void savetosame(int leng, string traduc, int liemp, string ruta, char* memblock,
     }
 }
 
-void savetoless(int leng, string traduc, int liemp, string ruta, char* memblock, int fin, int bileng, int linusu, vector<string> juntohex, int lineas)
+void savetoless(int leng, string traduc, int liemp, string ruta, char* memblock, int fin, int bileng, int linusu, int lineas)
 {
     ofstream myfile;
     char nleng = traduc.length();
@@ -314,7 +327,7 @@ void savetoless(int leng, string traduc, int liemp, string ruta, char* memblock,
                     char lastlin = memblock[10];
                     char lastlind = memblock[11];
                     lastlind = lastlind - 32;
-                    if ((lastlind == -32) | (lastlind == -16)) {
+                    if ((lastlind == -32) || (lastlind == -16)) {
                         lastlin = lastlin - 1;
                     }
                     myfile.write(&lastlin, 1);
@@ -503,11 +516,10 @@ void savetoless(int leng, string traduc, int liemp, string ruta, char* memblock,
     }
 }
 
-void savetomore(int leng, string traduc, int liemp, string ruta, char* memblock, int fin, int bileng, int linusu, vector<string> juntohex, int lineas)
+void savetomore(int leng, string traduc, int liemp, string ruta, char* memblock, int fin, int bileng, int linusu, int lineas)
 {
     ofstream myfile;
     char nleng = traduc.length();
-    int resto = leng - nleng;
     int findice = 16 + 4 * (linusu + 1); //Direccion del primer indice a modificar
     int poshex = memblock[findice] * 1024 + memblock[findice + 1] * 512 + memblock[findice + 2] * 256 + memblock[findice + 3];
     string linhex = int_to_hex(poshex);
@@ -716,7 +728,7 @@ void savetomore(int leng, string traduc, int liemp, string ruta, char* memblock,
                 char lastlin = memblock[10];
                 char lastlind = memblock[11];
                 lastlind = lastlind + 32;
-                if ((lastlind == 16) | (lastlind == 0)) {
+                if ((lastlind == 16) || (lastlind == 0)) {
                     lastlin = lastlin + 1;
                 }
                 myfile.write(&lastlin, 1);

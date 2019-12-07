@@ -6,6 +6,7 @@
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QListWidget>
+#include <QKeyEvent>
 
 using namespace std;
 
@@ -32,5 +33,9 @@ private slots:
 
 private:
     Ui::MainWindow *ui;
+
+protected:
+    void keyPressEvent(QKeyEvent* pe);
+
 };
 #endif // MAINWINDOW_H

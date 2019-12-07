@@ -35,7 +35,7 @@ MainWindow::~MainWindow()
 
 void MainWindow::keyPressEvent(QKeyEvent* pe)
 {
-if(pe->key() == Qt::Key_Return) on_save_clicked();
+    if(pe->key() == Qt::Key_Return) on_save_clicked();
 }
 
 string int_to_hex(int i);
@@ -45,12 +45,11 @@ void savetomore(int leng, string traduc, int liemp, string ruta, char* memblock,
 
 void MainWindow::on_actionOpen_triggered()
 {
-    QString filename = QFileDialog::getOpenFileName(this, "Open file");
+    QString filename = QFileDialog::getOpenFileName(this, "Open file","",tr("FTD files (*.ftd)"));
     ruta = filename.toUtf8().constData();
     ui->list->clear();
     openfile(ruta);
     fileopen = true;
-
 }
 
 
@@ -86,78 +85,79 @@ string int_to_hex(int i)
 
 void MainWindow::openfile(string ruta){
     ifstream file;
-        file.open(ruta, ios::binary);
-        if (file.is_open()) {
-            //Save last address
-            file.seekg(0, std::ios::end);
-            fin = file.tellg();
-            //Go back to the start
-            file.seekg(0, std::ios::beg);
-            // Memblock holds all the addreses of the file
-            memblock = new char [fin];
-            file.read(memblock, fin);
-            file.close();
+    file.open(ruta, ios::binary);
+    if (file.is_open()) {
+        //Save last address
+        file.seekg(0, std::ios::end);
+        fin = file.tellg();
+        //Go back to the start
+        file.seekg(0, std::ios::beg);
+        // Memblock holds all the addreses of the file
+        memblock = new char [fin];
+        file.read(memblock, fin);
+        file.close();
 
-            //Save the number of lines
-            int lin = memblock[15];
-            string linhex = int_to_hex(lin);
-            lineas = stoi(linhex, 0, 16); //Convert hex string to int (maybe this is not necesary but ¯\_(ツ)_/¯)
-            juntohex.clear(); //Clear the array with the index addreses in case the user opens a new file
-            int i = 0;
-            int offset = 16; // Address where the index starts
-            // Get all index and put it in  juntohex
-            while( i < lineas ){
-                int uno = memblock[offset];
-                string suno = int_to_hex(uno);
-                offset++;
-                int dos = memblock[offset];
-                string sdos = int_to_hex(dos);
-                offset++;
-                int tres = memblock[offset];
-                string stres = int_to_hex(tres);
-                offset++;
-                int cuatro = memblock[offset];
-                string scuatro = int_to_hex(cuatro);
+        //Save the number of lines
+        int lin = memblock[15];
+        string linhex = int_to_hex(lin);
+        lineas = stoi(linhex, 0, 16); //Convert hex string to int (maybe this is not necesary but ¯\_(ツ)_/¯)
+        juntohex.clear(); //Clear the array with the index addreses in case the user opens a new file
+        int i = 0;
+        int offset = 16; // Address where the index starts
+        // Get all index and put it in  juntohex
+        while( i < lineas )
+        {
+            int uno = memblock[offset];
+            string suno = int_to_hex(uno);
+            offset++;
+            int dos = memblock[offset];
+            string sdos = int_to_hex(dos);
+            offset++;
+            int tres = memblock[offset];
+            string stres = int_to_hex(tres);
+            offset++;
+            int cuatro = memblock[offset];
+            string scuatro = int_to_hex(cuatro);
 
-                stringstream test;
-                test << suno << sdos << stres << scuatro;
-                string tojunto(test.str());
-                juntohex.push_back(tojunto);
-                offset++;
-                i++;
+            stringstream test;
+            test << suno << sdos << stres << scuatro;
+            string tojunto(test.str());
+            juntohex.push_back(tojunto);
+            offset++;
+            i++;
+        }
+
+        int linusu;
+        linusu = 0;
+        vector<string> juntotext;
+        stringstream test2;
+        i = 0;
+        while(i < lineas)
+        {
+            int jint = stoi(juntohex[linusu], 0, 16);
+            int bileng = jint + 7; //Address position that holds the lenght of the current line
+            int leng = memblock[bileng];
+            int listart = jint + 16;
+            int index = 0;
+            while (index < leng)
+            {
+                char filine = memblock[listart];
+                test2 << filine; //Store all characters of the line and save them
+
+                listart++;
+                index++;
             }
-
-            int linusu;
-            linusu = 0;
-            vector<string> juntotext;
-            stringstream test2;
-            i = 0;
-            while(i < lineas){
-                int jint = stoi(juntohex[linusu], 0, 16);
-                int bileng = jint + 7; //Address position that holds the lenght of the current line
-                int leng = memblock[bileng];
-                int listart = jint + 16;
-                int index = 0;
-                while (index < leng) {
-                    char filine = memblock[listart];
-
-                    test2 << filine; //Store all characters of the line and save them
-
-                    listart++;
-                    index++;
-                }
-                string tojuntotext(test2.str()); //String that holds the current full line
-                QString Qjuntext = QString::fromUtf8(tojuntotext.c_str());
-                QString array[lineas];
-                array[i].append(Qjuntext); //Append the current line to the array
-                ui->list->addItem(array[i]); //Add item to the listview
-                test2.str("");
-                test2.clear(); //Clear "test2" so it can hold the next line
-                linusu++;
-                i++;
-
-            }
-     }
+            string tojuntotext(test2.str()); //String that holds the current full line
+            QString Qjuntext = QString::fromUtf8(tojuntotext.c_str());
+            QString array[lineas];
+            array[i].append(Qjuntext); //Append the current line to the array
+            ui->list->addItem(array[i]); //Add item to the listview
+            test2.str("");
+            test2.clear(); //Clear "test2" so it can hold the next line
+            linusu++;
+            i++;
+        }
+    }
 }
 
 
@@ -174,7 +174,7 @@ void MainWindow::on_save_clicked()
 {
     if (fileopen == false || listitemclicked == false){
         QMessageBox msgBox;
-        msgBox.setText("You need to open and select a line.");
+        msgBox.setText("You need to open a file and select a line.");
         msgBox.exec();
         return;
     }
@@ -186,10 +186,9 @@ void MainWindow::on_save_clicked()
     int jint = stoi(juntohex[linusu], 0, 16);
     int bileng = jint + 7;
     int leng = memblock[bileng];
-
     int liemp = jint + 16;
     if ((traduc.length() == 0)) {
-        exit(EXIT_SUCCESS);
+        return;
     }
     traduc = traduc + '\0';
     int newleng = traduc.length();
@@ -221,7 +220,7 @@ void savetosame(int leng, string traduc, int liemp, string ruta, char* memblock,
         myfile.write(&traduc[0], leng);
         myfile.write(&memblock[liemp + leng], fin - (liemp + leng));
         QMessageBox msgBox;
-        msgBox.setText("Finished.");
+        msgBox.setText("Saved");
         msgBox.exec();
         myfile.close();
     }
@@ -232,18 +231,17 @@ void savetoless(int leng, string traduc, int liemp, string ruta, char* memblock,
     ofstream myfile;
     char nleng = traduc.length();
     int resto = leng - nleng;
-    int findice = 16 + 4 * (linusu + 1); //Direccion del primer indice a modificar
+    int findice = 16 + 4 * (linusu + 1); //Address of the first index to modify
     int poshex = memblock[findice] * 1024 + memblock[findice + 1] * 512 + memblock[findice + 2] * 256 + memblock[findice + 3];
     string linhex = int_to_hex(poshex);
     poshex = stoi(linhex, 0, 16);
     poshex = poshex - 16;
     int startingbit = memblock[findice - 2];
     QMessageBox msgBox;
-    msgBox.setText("Finished.");
+    msgBox.setText("Saved");
     string valres = {'\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0' , '\0' , '\0' , '\0' , '\0' , '\0' , '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0'}; //Para añadir ceros, no se me ocurre nada mejor
     if (leng > 15) { // Si la frase original es mayor que 1 linea
         if (leng > 31) { // Si la frase original es mayor que 2 lineas
-
             if (nleng > 15 && nleng < 32) { //This is for when a sentence takes 3 lines and the new one only takes 2.
                 myfile.open(ruta, ios::binary | ios::trunc);
                 if (myfile.is_open())
@@ -259,13 +257,13 @@ void savetoless(int leng, string traduc, int liemp, string ruta, char* memblock,
                     }
                     myfile.write(&lastlin, 1);
                     myfile.write(&lastlind, 1);
-
                     myfile.write(&memblock[12], findice - 12);
 
                     int i = 1;
                     int t = 4;
                     char newposhex = startingbit;
-                    while (i < (lineas - linusu)) {
+                    while (i < (lineas - linusu))
+                    {
                         int tmp = memblock[findice + t - 5];
                         int tmpdos = memblock[findice + t - 1];
                         string tempura = int_to_hex(tmp);
@@ -297,7 +295,6 @@ void savetoless(int leng, string traduc, int liemp, string ruta, char* memblock,
                         poshex = stoi(linhex, 0, 16);
                         poshex = poshex - 16;
 
-
                         i++;
                     }
                     //Escribir despues de modificar el indice:
@@ -317,7 +314,7 @@ void savetoless(int leng, string traduc, int liemp, string ruta, char* memblock,
                 msgBox.exec();
                 myfile.close();
             }
-            else if (nleng < 15) {
+            else if (nleng < 16) {
                 myfile.open(ruta, ios::binary | ios::trunc);
                 if (myfile.is_open())
                 {
@@ -339,7 +336,8 @@ void savetoless(int leng, string traduc, int liemp, string ruta, char* memblock,
                     int t = 4;
                     char newposhex = startingbit;
                     poshex = poshex - 16;
-                    while (i < (lineas - linusu)) {
+                    while (i < (lineas - linusu))
+                    {
                         int tmp = memblock[findice + t - 5];
                         int tmpdos = memblock[findice + t - 1];
                         string tempura = int_to_hex(tmp);
@@ -423,13 +421,13 @@ void savetoless(int leng, string traduc, int liemp, string ruta, char* memblock,
                 }
                 myfile.write(&lastlin, 1);
                 myfile.write(&lastlind, 1);
-
                 myfile.write(&memblock[12], findice - 12);
 
                 int i = 1;
                 int t = 4;
                 char newposhex = startingbit;
-                while (i < (lineas - linusu)) {
+                while (i < (lineas - linusu))
+                {
                     int tmp = memblock[findice + t - 5];
                     int tmpdos = memblock[findice + t - 1];
                     string tempura = int_to_hex(tmp);
@@ -527,7 +525,7 @@ void savetomore(int leng, string traduc, int liemp, string ruta, char* memblock,
     poshex = poshex + 16;
     int startingbit = memblock[findice - 2];
     QMessageBox msgBox;
-    msgBox.setText("Finished.");
+    msgBox.setText("Saved");
     string valres = { '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0' , '\0' , '\0' , '\0' , '\0' , '\0' , '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0' }; //Para añadir ceros, no se me ocurre nada mejor
     if (leng > 15 && leng < 32) { // Si la frase original ocupa 2 lineas
         if (nleng > 47) {
@@ -536,7 +534,7 @@ void savetomore(int leng, string traduc, int liemp, string ruta, char* memblock,
             exit(EXIT_FAILURE);
         }
         else if (nleng < 48 && nleng > 31) {
-                myfile.open(ruta, ios::binary | ios::trunc);
+            myfile.open(ruta, ios::binary | ios::trunc);
             if (myfile.is_open())
             {
                 myfile.seekp(0, std::ios::beg);
@@ -550,13 +548,13 @@ void savetomore(int leng, string traduc, int liemp, string ruta, char* memblock,
                 }
                 myfile.write(&lastlin, 1);
                 myfile.write(&lastlind, 1);
-
                 myfile.write(&memblock[12], findice - 12);
 
                 int i = 1;
                 int t = 4;
                 char newposhex = startingbit;
-                while (i < (lineas - linusu)) {
+                while (i < (lineas - linusu))
+                {
                     int tmp = memblock[findice + t - 5];
                     int tmpdos = memblock[findice + t - 1];
                     string tempura = int_to_hex(tmp);
@@ -661,13 +659,13 @@ void savetomore(int leng, string traduc, int liemp, string ruta, char* memblock,
                 }
                 myfile.write(&lastlin, 1);
                 myfile.write(&lastlind, 1);
-
                 myfile.write(&memblock[12], findice - 12);
 
                 int i = 1;
                 int t = 4;
                 char newposhex = startingbit;
-                while (i < (lineas - linusu)) {
+                while (i < (lineas - linusu))
+                {
                     int tmp = memblock[findice + t - 5];
                     int tmpdos = memblock[findice + t - 1];
                     string tempura = int_to_hex(tmp);
@@ -733,14 +731,14 @@ void savetomore(int leng, string traduc, int liemp, string ruta, char* memblock,
                 }
                 myfile.write(&lastlin, 1);
                 myfile.write(&lastlind, 1);
-
                 myfile.write(&memblock[12], findice - 12);
 
                 int i = 1;
                 int t = 4;
                 char newposhex = startingbit;
                 poshex = poshex + 16;
-                while (i < (lineas - linusu)) {
+                while (i < (lineas - linusu))
+                {
                     int tmp = memblock[findice + t - 5];
                     int tmpdos = memblock[findice + t - 1];
                     string tempura = int_to_hex(tmp);

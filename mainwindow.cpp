@@ -97,8 +97,8 @@ void MainWindow::openfile(string ruta){
         file.read(memblock, fin);
         file.close();
 
-        //Save the number of lines
-        int lin = memblock[15];
+        int version = memblock[13]; //Get ftd version
+        int lin = memblock[15]; //Save the number of lines
         string linhex = int_to_hex(lin);
         lineas = stoi(linhex, 0, 16); //Convert hex string to int (maybe this is not necesary but ¯\_(ツ)_/¯)
         juntohex.clear(); //Clear the array with the index addreses in case the user opens a new file
@@ -128,6 +128,8 @@ void MainWindow::openfile(string ruta){
         }
 
         int linusu;
+        int bileng;
+        int listart;
         linusu = 0;
         vector<string> juntotext;
         stringstream test2;
@@ -135,9 +137,19 @@ void MainWindow::openfile(string ruta){
         while(i < lineas)
         {
             int jint = stoi(juntohex[linusu], 0, 16);
-            int bileng = jint + 7; //Address position that holds the lenght of the current line
+            if( version == 0){
+                bileng = jint + 7; //Address position that holds the lenght of the current line
+            }
+            else{
+                bileng = jint; //Address position that holds the lenght of the current line
+            }
             int leng = memblock[bileng];
-            int listart = jint + 16;
+            if( version == 0){
+                listart = jint + 16;
+            }
+            else{
+                listart = jint + 4;
+            }
             int index = 0;
             while (index < leng)
             {
@@ -184,9 +196,23 @@ void MainWindow::on_save_clicked()
 
     int linusu = currentline;
     int jint = stoi(juntohex[linusu], 0, 16);
-    int bileng = jint + 7;
+    int bileng;
+    int version = memblock[13]; //Get ftd version
+    if( version == 0){
+        bileng = jint + 7; //Address position that holds the lenght of the current line
+    }
+    else{
+        bileng = jint; //Address position that holds the lenght of the current line
+    }
     int leng = memblock[bileng];
-    int liemp = jint + 16;
+    int liemp;
+    if( version == 0){
+        liemp = jint + 16;
+    }
+    else{
+        liemp = jint + 4;
+    }
+
     if ((traduc.length() == 0)) {
         return;
     }
@@ -305,6 +331,10 @@ void savetoless(int leng, string traduc, int liemp, string ruta, char* memblock,
                     myfile.write(&memblock[bileng + 1], liemp - myfile.tellp()); //Sigue escribiendo el ori hasta el liemp (restando lo ya avanzado)
                     myfile.write(&traduc[0], nleng); //Inserta la traduccion
                     int restlin = 32 - nleng;
+                    int version = memblock[13]; //Get ftd version
+                    if (version == 1){
+                        restlin = 28 - nleng;
+                    }
                     myfile.write(&valres[0], restlin); //Como es de menor tamaño, rellena los bits faltantes con el array ese chungo que he echo.
                     //Para la posicion de memblock es la suma de todos los tamaños anteriores, y para el tamaño es "end" - el memblock.
                     int pls = myfile.tellp();
@@ -379,7 +409,11 @@ void savetoless(int leng, string traduc, int liemp, string ruta, char* memblock,
                     myfile.write(&memblock[bileng + 1], liemp - myfile.tellp()); //Sigue escribiendo el ori hasta el liemp (restando lo ya avanzado)
                     myfile.write(&traduc[0], nleng); //Inserta la traduccion
                     int restlin = 16 - nleng;
-                    myfile.write(&valres[0], restlin); //Como es de menor tamaño, rellena los bits faltantes con el array ese chungo que he echo.
+                    int version = memblock[13]; //Get ftd version
+                    if (version == 1){
+                        restlin = 12 - nleng;
+                    }
+                    myfile.write(&valres[0], restlin); //Como es de menor tamaño, rellena los bits faltantes con el array ese chungo que he hecho.
                     //Para la posicion de memblock es la suma de todos los tamaños anteriores, y para el tamaño es "end" - el memblock.
                     int pls = myfile.tellp();
                     myfile.write(&memblock[pls + 32], fin - myfile.tellp() - 32);
@@ -469,6 +503,10 @@ void savetoless(int leng, string traduc, int liemp, string ruta, char* memblock,
                 myfile.write(&memblock[bileng + 1], liemp - myfile.tellp()); //Sigue escribiendo el ori hasta el liemp (restando lo ya avanzado)
                 myfile.write(&traduc[0], nleng); //Inserta la traduccion
                 int restlin = 16 - nleng;
+                int version = memblock[13]; //Get ftd version
+                if (version == 1){
+                    restlin = 12 - nleng;
+                }
                 myfile.write(&valres[0], restlin); //Como es de menor tamaño, rellena los bits faltantes con el array ese chungo que he echo.
                 //Para la posicion de memblock es la suma de todos los tamaños anteriores, y para el tamaño es "end" - el memblock.
                 int pls = myfile.tellp();
@@ -596,6 +634,10 @@ void savetomore(int leng, string traduc, int liemp, string ruta, char* memblock,
                 myfile.write(&memblock[bileng + 1], liemp - myfile.tellp()); //Sigue escribiendo el ori hasta el liemp (restando lo ya avanzado)
                 myfile.write(&traduc[0], nleng); //Inserta la traduccion
                 int restlin = 48 - nleng;
+                int version = memblock[13]; //Get ftd version
+                if (version == 1){
+                    restlin = 44 - nleng;
+                }
                 myfile.write(&valres[0], restlin); //Como es de menor tamaño, rellena los bits faltantes con el array ese chungo que he echo.
                 //Para la posicion de memblock es la suma de todos los tamaños anteriores, y para el tamaño es "end" - el memblock.
                 int pls = myfile.tellp();
@@ -707,6 +749,10 @@ void savetomore(int leng, string traduc, int liemp, string ruta, char* memblock,
                 myfile.write(&memblock[bileng + 1], liemp - myfile.tellp()); //Sigue escribiendo el ori hasta el liemp (restando lo ya avanzado)
                 myfile.write(&traduc[0], nleng); //Inserta la traduccion
                 int restlin = 32 - nleng;
+                int version = memblock[13]; //Get ftd version
+                if (version == 1){
+                    restlin = 28 - nleng;
+                }
                 myfile.write(&valres[0], restlin); //Como es de menor tamaño, rellena los bits faltantes con el array ese chungo que he echo.
                 //Para la posicion de memblock es la suma de todos los tamaños anteriores, y para el tamaño es "end" - el memblock.
                 int pls = myfile.tellp();
@@ -780,6 +826,10 @@ void savetomore(int leng, string traduc, int liemp, string ruta, char* memblock,
                 myfile.write(&memblock[bileng + 1], liemp - myfile.tellp()); //Sigue escribiendo el ori hasta el liemp (restando lo ya avanzado)
                 myfile.write(&traduc[0], nleng); //Inserta la traduccion
                 int restlin = 48 - nleng;
+                int version = memblock[13]; //Get ftd version
+                if (version == 1){
+                    restlin = 44 - nleng;
+                }
                 myfile.write(&valres[0], restlin); //Como es de menor tamaño, rellena los bits faltantes con el array ese chungo que he echo.
                 //Para la posicion de memblock es la suma de todos los tamaños anteriores, y para el tamaño es "end" - el memblock.
                 int pls = myfile.tellp();

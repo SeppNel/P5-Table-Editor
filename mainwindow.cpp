@@ -8,6 +8,7 @@
 #include <vector>
 #include <QStringList>
 #include <QSignalMapper>
+#include <regex>
 
 using namespace std;
 string ruta;
@@ -160,6 +161,22 @@ void MainWindow::openfile(string ruta){
                 index++;
             }
             string tojuntotext(test2.str()); //String that holds the current full line
+
+            //Check for tildes by hex code of backported font
+            tojuntotext = regex_replace(tojuntotext, std::regex("\\\x84\x96"), "á");
+            tojuntotext = regex_replace(tojuntotext, std::regex("\\\x84\x9E"), "é");
+            tojuntotext = regex_replace(tojuntotext, std::regex("\\\x84\xA2"), "í");
+            tojuntotext = regex_replace(tojuntotext, std::regex("\\\x84\xA8"), "ó");
+            tojuntotext = regex_replace(tojuntotext, std::regex("\\\x84\xAE"), "ú");
+            tojuntotext = regex_replace(tojuntotext, std::regex("\\\x84\xA6"), "ñ");
+            //regular letters after special character, idk why
+            tojuntotext = regex_replace(tojuntotext, std::regex("\\\x80\xC1"), "a");
+            tojuntotext = regex_replace(tojuntotext, std::regex("\\\x80\xC2"), "b");
+            tojuntotext = regex_replace(tojuntotext, std::regex("\\\x80\xC3"), "c");
+            tojuntotext = regex_replace(tojuntotext, std::regex("\\\x80\xC4"), "d");
+            tojuntotext = regex_replace(tojuntotext, std::regex("\\\x80\xC5"), "e");
+            tojuntotext = regex_replace(tojuntotext, std::regex("\\\x80\xC6"), "f");
+
             QString Qjuntext = QString::fromUtf8(tojuntotext.c_str());
             QString array[lineas];
             array[i].append(Qjuntext); //Append the current line to the array
@@ -194,6 +211,14 @@ void MainWindow::on_save_clicked()
     QString translation = ui->textedit->text();
     string traduc = translation.toUtf8().constData(); //Get the content of textedit and convert it to string
 
+    //Check for tildes by hex code of backported font
+    traduc = regex_replace(traduc, std::regex("\\á"), "\x84\x96");
+    traduc = regex_replace(traduc, std::regex("\\é"), "\x84\x9E");
+    traduc = regex_replace(traduc, std::regex("\\í"), "\x84\xA2");
+    traduc = regex_replace(traduc, std::regex("\\ó"), "\x84\xA8");
+    traduc = regex_replace(traduc, std::regex("\\ú"), "\x84\xAE");
+    traduc = regex_replace(traduc, std::regex("\\ñ"), "\x84\xA6");
+
     int linusu = currentline;
     int jint = stoi(juntohex[linusu], 0, 16);
     int bileng;
@@ -221,16 +246,19 @@ void MainWindow::on_save_clicked()
     if (newleng == leng) {
         savetosame(leng, traduc, liemp, ruta, memblock, fin);
         ui->list->clear();
+        cout << "same";
         openfile(ruta);
     }
     else if (newleng < leng) {
         savetoless(leng, traduc, liemp, ruta, memblock, fin, bileng, linusu, lineas);
         ui->list->clear();
+        cout << "less";
         openfile(ruta);
     }
     else {
         savetomore(leng, traduc, liemp, ruta, memblock, fin, bileng, linusu, lineas);
         ui->list->clear();
+        cout << "more";
         openfile(ruta);
     }
 }
@@ -266,9 +294,9 @@ void savetoless(int leng, string traduc, int liemp, string ruta, char* memblock,
     QMessageBox msgBox;
     msgBox.setText("Saved");
     string valres = {'\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0' , '\0' , '\0' , '\0' , '\0' , '\0' , '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0'}; //Para añadir ceros, no se me ocurre nada mejor
-    if (leng > 15) { // Si la frase original es mayor que 1 linea
-        if (leng > 31) { // Si la frase original es mayor que 2 lineas
-            if (nleng > 15 && nleng < 32) { //This is for when a sentence takes 3 lines and the new one only takes 2.
+    if (leng > 16) { // Si la frase original es mayor que 1 linea
+        if (leng > 32) { // Si la frase original es mayor que 2 lineas
+            if (nleng > 16 && nleng <= 32) { //This is for when a sentence takes 3 lines and the new one only takes 2.
                 myfile.open(ruta, ios::binary | ios::trunc);
                 if (myfile.is_open())
                 {
@@ -344,7 +372,7 @@ void savetoless(int leng, string traduc, int liemp, string ruta, char* memblock,
                 msgBox.exec();
                 myfile.close();
             }
-            else if (nleng < 16) {
+            else if (nleng <= 16) {
                 myfile.open(ruta, ios::binary | ios::trunc);
                 if (myfile.is_open())
                 {
@@ -440,7 +468,7 @@ void savetoless(int leng, string traduc, int liemp, string ruta, char* memblock,
             }
             return;
         }
-        if (nleng < 16) { //This is for when a sentence takes 2 lines and the new one only takes one.
+        if (nleng <= 16) { //This is for when a sentence takes 2 lines and the new one only takes one.
             myfile.open(ruta, ios::binary | ios::trunc);
             if (myfile.is_open())
             {
@@ -565,13 +593,13 @@ void savetomore(int leng, string traduc, int liemp, string ruta, char* memblock,
     QMessageBox msgBox;
     msgBox.setText("Saved");
     string valres = { '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0' , '\0' , '\0' , '\0' , '\0' , '\0' , '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0' }; //Para añadir ceros, no se me ocurre nada mejor
-    if (leng > 15 && leng < 32) { // Si la frase original ocupa 2 lineas
+    if (leng > 16 && leng <= 32) { // Si la frase original ocupa 2 lineas
         if (nleng > 47) {
             msgBox.setText("New line takes 4 lines or more. Not supported for now.");
             msgBox.exec();
             exit(EXIT_FAILURE);
         }
-        else if (nleng < 48 && nleng > 31) {
+        else if (nleng <= 48 && nleng > 32) {
             myfile.open(ruta, ios::binary | ios::trunc);
             if (myfile.is_open())
             {
@@ -663,8 +691,8 @@ void savetomore(int leng, string traduc, int liemp, string ruta, char* memblock,
             }
         }
     }
-    else if (leng > 31) { // Si la frase original ocupa 3 lineas
-        if (nleng > 47) {
+    else if (leng > 32) { // Si la frase original ocupa 3 lineas
+        if (nleng > 48) {
             msgBox.setText("New line takes 4 lines or more. Not supported for now.");
             msgBox.exec();
                 exit(EXIT_FAILURE);
@@ -686,7 +714,7 @@ void savetomore(int leng, string traduc, int liemp, string ruta, char* memblock,
         }
     }
     else { // Si la frase original ocupa 1 lineas
-        if (nleng > 15 && nleng < 32) { // Y la nueva 2
+        if (nleng > 16 && nleng <= 32) { // Y la nueva 2
             myfile.open(ruta, ios::binary | ios::trunc);
             if (myfile.is_open())
             {
@@ -762,7 +790,7 @@ void savetomore(int leng, string traduc, int liemp, string ruta, char* memblock,
             msgBox.exec();
             myfile.close();
         }
-        else if (nleng > 31) { // Y la nueva 3
+        else if (nleng > 32) { // Y la nueva 3
             myfile.open(ruta, ios::binary | ios::trunc);
             if (myfile.is_open())
             {

@@ -37,7 +37,8 @@ MainWindow::~MainWindow()
 
 void MainWindow::keyPressEvent(QKeyEvent* pe)
 {
-    if(pe->key() == Qt::Key_Return) on_save_clicked();
+    if(pe->key() == Qt::Key_Return) on_save_clicked(); //Save Hotkey
+    if(pe->key() == Qt::Key_Shift) on_list_itemClicked(); // Select Hotckey
 }
 
 string int_to_hex(int i);
@@ -144,8 +145,6 @@ void MainWindow::openfile(string ruta){
         vector<string> juntotext;
         stringstream test2;
         i = 0;
-        cout << linhex << endl;
-        cout << lineas << endl;
         while(i < lineas)
         {
             int jint = stoi(juntohex[linusu], 0, 16);
@@ -202,7 +201,7 @@ void MainWindow::openfile(string ruta){
 }
 
 
-void MainWindow::on_list_itemClicked(QListWidgetItem *item)
+void MainWindow::on_list_itemClicked()
 {
     QString lintotmp = ui->list->currentItem()->text();
     currentline = ui->list->currentRow();
@@ -258,19 +257,16 @@ void MainWindow::on_save_clicked()
     if (newleng == leng) {
         savetosame(leng, traduc, liemp, ruta, memblock, fin);
         ui->list->clear();
-        cout << "same";
         openfile(ruta);
     }
     else if (newleng < leng) {
         savetoless(leng, traduc, liemp, ruta, memblock, fin, bileng, linusu, lineas);
         ui->list->clear();
-        cout << "less";
         openfile(ruta);
     }
     else {
         savetomore(leng, traduc, liemp, ruta, memblock, fin, bileng, linusu, lineas);
         ui->list->clear();
-        cout << "more";
         openfile(ruta);
     }
 }

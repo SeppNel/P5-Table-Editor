@@ -26,7 +26,7 @@ private slots:
     void on_actionOpen_triggered();
     void openfile(string ruta);
 
-    void on_list_itemClicked(QListWidgetItem *item);
+    void on_list_itemClicked();
 
 
     void on_save_clicked();

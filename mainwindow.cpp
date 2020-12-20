@@ -16,6 +16,7 @@ char* memblock;
 vector<string> juntohex;
 int fin;
 int lineas;
+string linhexplus;
 int currentline;
 bool fileopen = false;
 bool listitemclicked = false;
@@ -99,8 +100,16 @@ void MainWindow::openfile(string ruta){
         file.close();
 
         int version = memblock[13]; //Get ftd version
+        int linp = memblock[14]; // Get complete number of lines, bakka!
+        if (linp > 0){
+            linhexplus =  int_to_hex(linp);
+        }
+        else{
+            linhexplus = ""; //Reset if new file open
+        }
         int lin = memblock[15]; //Save the number of lines
         string linhex = int_to_hex(lin);
+        linhex = linhexplus + linhex;
         lineas = stoi(linhex, 0, 16); //Convert hex string to int (maybe this is not necesary but ¯\_(ツ)_/¯)
         juntohex.clear(); //Clear the array with the index addreses in case the user opens a new file
         int i = 0;
@@ -135,6 +144,8 @@ void MainWindow::openfile(string ruta){
         vector<string> juntotext;
         stringstream test2;
         i = 0;
+        cout << linhex << endl;
+        cout << lineas << endl;
         while(i < lineas)
         {
             int jint = stoi(juntohex[linusu], 0, 16);
@@ -162,6 +173,7 @@ void MainWindow::openfile(string ruta){
             }
             string tojuntotext(test2.str()); //String that holds the current full line
 
+            //cout << tojuntotext << endl;
             //Check for tildes by hex code of backported font
             tojuntotext = regex_replace(tojuntotext, std::regex("\\\x84\x96"), "á");
             tojuntotext = regex_replace(tojuntotext, std::regex("\\\x84\x9E"), "é");

@@ -180,6 +180,7 @@ void MainWindow::openfile(string ruta){
             tojuntotext = regex_replace(tojuntotext, std::regex("\\\x84\xA8"), "ó");
             tojuntotext = regex_replace(tojuntotext, std::regex("\\\x84\xAE"), "ú");
             tojuntotext = regex_replace(tojuntotext, std::regex("\\\x84\xA6"), "ñ");
+            tojuntotext = regex_replace(tojuntotext, std::regex("\\\x83\xF7"), "Á");
             //regular letters after special character, idk why
             tojuntotext = regex_replace(tojuntotext, std::regex("\\\x80\xC1"), "a");
             tojuntotext = regex_replace(tojuntotext, std::regex("\\\x80\xC2"), "b");
@@ -229,6 +230,7 @@ void MainWindow::on_save_clicked()
     traduc = regex_replace(traduc, std::regex("\\ó"), "\x84\xA8");
     traduc = regex_replace(traduc, std::regex("\\ú"), "\x84\xAE");
     traduc = regex_replace(traduc, std::regex("\\ñ"), "\x84\xA6");
+    traduc = regex_replace(traduc, std::regex("\\Á"), "\x83\xF7");
 
     int linusu = currentline;
     int jint = stoi(juntohex[linusu], 0, 16);
@@ -302,9 +304,183 @@ void savetoless(int leng, string traduc, int liemp, string ruta, char* memblock,
     QMessageBox msgBox;
     msgBox.setText("Saved");
     string valres = {'\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0' , '\0' , '\0' , '\0' , '\0' , '\0' , '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0'}; //Para añadir ceros, no se me ocurre nada mejor
-    if (leng > 16) { // Si la frase original es mayor que 1 linea
-        if (leng > 32) { // Si la frase original es mayor que 2 lineas
-            if (nleng > 16 && nleng <= 32) { //This is for when a sentence takes 3 lines and the new one only takes 2.
+    int version = memblock[13]; //Get ftd version
+    if (version == 0){
+        if (leng > 16) { // Si la frase original es mayor que 1 linea
+            if (leng > 32) { // Si la frase original es mayor que 2 lineas
+                if (nleng > 16 && nleng <= 32) { //This is for when a sentence takes 3 lines and the new one only takes 2.
+                    myfile.open(ruta, ios::binary | ios::trunc);
+                    if (myfile.is_open())
+                    {
+                        myfile.seekp(0, std::ios::beg);
+                        myfile.write(&memblock[0], 10);
+
+                        char lastlin = memblock[10];
+                        char lastlind = memblock[11];
+                        lastlind = lastlind - 16;
+                        if (lastlind == -16) {
+                            lastlin = lastlin - 1;
+                        }
+                        myfile.write(&lastlin, 1);
+                        myfile.write(&lastlind, 1);
+                        myfile.write(&memblock[12], findice - 12);
+
+                        int i = 1;
+                        int t = 4;
+                        char newposhex = startingbit;
+                        while (i < (lineas - linusu))
+                        {
+                            int tmp = memblock[findice + t - 5];
+                            int tmpdos = memblock[findice + t - 1];
+                            string tempura = int_to_hex(tmp);
+                            tmp = stoi(tempura, 0, 16);
+                            if (i != 1) {
+                                tmp = tmp - 16;
+                            }
+                            string tempurados = int_to_hex(tmpdos);
+                            tmpdos = stoi(tempurados, 0, 16);
+                            tmpdos = tmpdos - 16;
+                            if (tmp < 0) {
+                                tmp = tmp + 256;
+                            }
+                            if (tmpdos < 0) {
+                                tmpdos = tmpdos + 256;
+                            }
+                            if (tmp > tmpdos) {
+                                newposhex++;
+                            }
+                            char dirindi = poshex;
+                            char dirando = newposhex;
+                            myfile.write(&valres[0], 2);
+                            myfile.write(&dirando, 1);
+                            myfile.write(&dirindi, 1);
+
+                            poshex = memblock[findice + t] * 1024 + memblock[findice + t + 1] * 512 + memblock[findice + t + 2] * 256 + memblock[findice + t + 3];
+                            t = t + 4;
+                            linhex = int_to_hex(poshex);
+                            poshex = stoi(linhex, 0, 16);
+                            poshex = poshex - 16;
+
+                            i++;
+                        }
+                        //Escribir despues de modificar el indice:
+
+                        t = t - 4;
+                        myfile.write(&memblock[findice + t], bileng - myfile.tellp()); //Escribe el original hasta el bit de longitud
+                        myfile.write(&nleng, 1); //Escribe el tamaño de memoria del tamaño de la translation
+                        myfile.write(&memblock[bileng + 1], liemp - myfile.tellp()); //Sigue escribiendo el ori hasta el liemp (restando lo ya avanzado)
+                        myfile.write(&traduc[0], nleng); //Inserta la traduccion
+                        int restlin = 32 - nleng;
+                        int version = memblock[13]; //Get ftd version
+                        if (version == 1){
+                            restlin = 28 - nleng;
+                        }
+                        myfile.write(&valres[0], restlin); //Como es de menor tamaño, rellena los bits faltantes con el array ese chungo que he echo.
+                        //Para la posicion de memblock es la suma de todos los tamaños anteriores, y para el tamaño es "end" - el memblock.
+                        int pls = myfile.tellp();
+                        myfile.write(&memblock[pls + 16], fin - myfile.tellp() - 16);
+
+                    }
+                    msgBox.exec();
+                    myfile.close();
+                }
+                else if (nleng <= 16) {
+                    myfile.open(ruta, ios::binary | ios::trunc);
+                    if (myfile.is_open())
+                    {
+                        myfile.seekp(0, std::ios::beg);
+                        myfile.write(&memblock[0], 10);
+
+                        char lastlin = memblock[10];
+                        char lastlind = memblock[11];
+                        lastlind = lastlind - 32;
+                        if ((lastlind == -32) || (lastlind == -16)) {
+                            lastlin = lastlin - 1;
+                        }
+                        myfile.write(&lastlin, 1);
+                        myfile.write(&lastlind, 1);
+
+                        myfile.write(&memblock[12], findice - 12);
+
+                        int i = 1;
+                        int t = 4;
+                        char newposhex = startingbit;
+                        poshex = poshex - 16;
+                        while (i < (lineas - linusu))
+                        {
+                            int tmp = memblock[findice + t - 5];
+                            int tmpdos = memblock[findice + t - 1];
+                            string tempura = int_to_hex(tmp);
+                            tmp = stoi(tempura, 0, 16);
+                            if (i != 1) {
+                                tmp = tmp - 32;
+                            }
+                            string tempurados = int_to_hex(tmpdos);
+                            tmpdos = stoi(tempurados, 0, 16);
+                            tmpdos = tmpdos - 32;
+                            if (tmp < 0) {
+                                tmp = tmp + 256;
+                            }
+                            if (tmpdos < 0) {
+                                tmpdos = tmpdos + 256;
+                            }
+                            if (tmp > tmpdos) {
+                                newposhex++;
+                            }
+                            char dirindi = poshex;
+                            char dirando = newposhex;
+                            myfile.write(&valres[0], 2);
+                            myfile.write(&dirando, 1);
+                            myfile.write(&dirindi, 1);
+
+                            poshex = memblock[findice + t] * 1024 + memblock[findice + t + 1] * 512 + memblock[findice + t + 2] * 256 + memblock[findice + t + 3];
+                            t = t + 4;
+                            linhex = int_to_hex(poshex);
+                            poshex = stoi(linhex, 0, 16);
+                            poshex = poshex - 32;
+
+                            i++;
+                        }
+                        //Escribir despues de modificar el indice:
+
+                        t = t - 4;
+                        myfile.write(&memblock[findice + t], bileng - myfile.tellp()); //Escribe el original hasta el bit de longitud
+                        myfile.write(&nleng, 1); //Escribe el tamaño de memoria del tamaño de la translation
+                        myfile.write(&memblock[bileng + 1], liemp - myfile.tellp()); //Sigue escribiendo el ori hasta el liemp (restando lo ya avanzado)
+                        myfile.write(&traduc[0], nleng); //Inserta la traduccion
+                        int restlin = 16 - nleng;
+                        int version = memblock[13]; //Get ftd version
+                        if (version == 1){
+                            restlin = 12 - nleng;
+                        }
+                        myfile.write(&valres[0], restlin); //Como es de menor tamaño, rellena los bits faltantes con el array ese chungo que he hecho.
+                        //Para la posicion de memblock es la suma de todos los tamaños anteriores, y para el tamaño es "end" - el memblock.
+                        int pls = myfile.tellp();
+                        myfile.write(&memblock[pls + 32], fin - myfile.tellp() - 32);
+
+                    }
+                    msgBox.exec();
+                    myfile.close();
+                }
+                else {
+                    myfile.open(ruta, ios::binary | ios::trunc);
+                    if (myfile.is_open())
+                    {
+                        myfile.seekp(0, std::ios::beg); //Puntero al inicio
+                        myfile.write(&memblock[0], bileng); //Escribe el original hasta el bit de longitud
+                        myfile.write(&nleng, 1); //Escribe el tamaño de memoria del tamaño de la translation
+                        myfile.write(&memblock[bileng + 1], liemp - (bileng + 1)); //Sigue escribiendo el ori hasta el liemp (restando lo ya avanzado)
+                        myfile.write(&traduc[0], nleng); //Inserta la traduccion
+                        myfile.write(&valres[0], resto); //Como es de menor tamaño, rellena los bits faltantes con el array ese chungo que he echo.
+                        //Para la posicion de memblock es la suma de todos los tamaños anteriores, y para el tamaño es "end" - el memblock.
+                        myfile.write(&memblock[bileng + 1 + (liemp - (bileng + 1)) + nleng + resto], fin - (bileng + 1 + (liemp - (bileng + 1)) + nleng + resto));
+                        msgBox.exec();
+                        myfile.close();
+                    }
+                }
+                return;
+            }
+            if (nleng <= 16) { //This is for when a sentence takes 2 lines and the new one only takes one.
                 myfile.open(ruta, ios::binary | ios::trunc);
                 if (myfile.is_open())
                 {
@@ -314,7 +490,7 @@ void savetoless(int leng, string traduc, int liemp, string ruta, char* memblock,
                     char lastlin = memblock[10];
                     char lastlind = memblock[11];
                     lastlind = lastlind - 16;
-                    if (lastlind == -16) {
+                    if (lastlind == -16 ) {
                         lastlin = lastlin - 1;
                     }
                     myfile.write(&lastlin, 1);
@@ -366,93 +542,15 @@ void savetoless(int leng, string traduc, int liemp, string ruta, char* memblock,
                     myfile.write(&nleng, 1); //Escribe el tamaño de memoria del tamaño de la translation
                     myfile.write(&memblock[bileng + 1], liemp - myfile.tellp()); //Sigue escribiendo el ori hasta el liemp (restando lo ya avanzado)
                     myfile.write(&traduc[0], nleng); //Inserta la traduccion
-                    int restlin = 32 - nleng;
-                    int version = memblock[13]; //Get ftd version
-                    if (version == 1){
-                        restlin = 28 - nleng;
-                    }
-                    myfile.write(&valres[0], restlin); //Como es de menor tamaño, rellena los bits faltantes con el array ese chungo que he echo.
-                    //Para la posicion de memblock es la suma de todos los tamaños anteriores, y para el tamaño es "end" - el memblock.
-                    int pls = myfile.tellp();
-                    myfile.write(&memblock[pls + 16], fin - myfile.tellp() - 16);
-
-                }
-                msgBox.exec();
-                myfile.close();
-            }
-            else if (nleng <= 16) {
-                myfile.open(ruta, ios::binary | ios::trunc);
-                if (myfile.is_open())
-                {
-                    myfile.seekp(0, std::ios::beg);
-                    myfile.write(&memblock[0], 10);
-
-                    char lastlin = memblock[10];
-                    char lastlind = memblock[11];
-                    lastlind = lastlind - 32;
-                    if ((lastlind == -32) || (lastlind == -16)) {
-                        lastlin = lastlin - 1;
-                    }
-                    myfile.write(&lastlin, 1);
-                    myfile.write(&lastlind, 1);
-
-                    myfile.write(&memblock[12], findice - 12);
-
-                    int i = 1;
-                    int t = 4;
-                    char newposhex = startingbit;
-                    poshex = poshex - 16;
-                    while (i < (lineas - linusu))
-                    {
-                        int tmp = memblock[findice + t - 5];
-                        int tmpdos = memblock[findice + t - 1];
-                        string tempura = int_to_hex(tmp);
-                        tmp = stoi(tempura, 0, 16);
-                        if (i != 1) {
-                            tmp = tmp - 32;
-                        }
-                        string tempurados = int_to_hex(tmpdos);
-                        tmpdos = stoi(tempurados, 0, 16);
-                        tmpdos = tmpdos - 32;
-                        if (tmp < 0) {
-                            tmp = tmp + 256;
-                        }
-                        if (tmpdos < 0) {
-                            tmpdos = tmpdos + 256;
-                        }
-                        if (tmp > tmpdos) {
-                            newposhex++;
-                        }
-                        char dirindi = poshex;
-                        char dirando = newposhex;
-                        myfile.write(&valres[0], 2);
-                        myfile.write(&dirando, 1);
-                        myfile.write(&dirindi, 1);
-
-                        poshex = memblock[findice + t] * 1024 + memblock[findice + t + 1] * 512 + memblock[findice + t + 2] * 256 + memblock[findice + t + 3];
-                        t = t + 4;
-                        linhex = int_to_hex(poshex);
-                        poshex = stoi(linhex, 0, 16);
-                        poshex = poshex - 32;
-
-                        i++;
-                    }
-                    //Escribir despues de modificar el indice:
-
-                    t = t - 4;
-                    myfile.write(&memblock[findice + t], bileng - myfile.tellp()); //Escribe el original hasta el bit de longitud
-                    myfile.write(&nleng, 1); //Escribe el tamaño de memoria del tamaño de la translation
-                    myfile.write(&memblock[bileng + 1], liemp - myfile.tellp()); //Sigue escribiendo el ori hasta el liemp (restando lo ya avanzado)
-                    myfile.write(&traduc[0], nleng); //Inserta la traduccion
                     int restlin = 16 - nleng;
                     int version = memblock[13]; //Get ftd version
                     if (version == 1){
                         restlin = 12 - nleng;
                     }
-                    myfile.write(&valres[0], restlin); //Como es de menor tamaño, rellena los bits faltantes con el array ese chungo que he hecho.
+                    myfile.write(&valres[0], restlin); //Como es de menor tamaño, rellena los bits faltantes con el array ese chungo que he echo.
                     //Para la posicion de memblock es la suma de todos los tamaños anteriores, y para el tamaño es "end" - el memblock.
                     int pls = myfile.tellp();
-                    myfile.write(&memblock[pls + 32], fin - myfile.tellp() - 32);
+                    myfile.write(&memblock[pls + 16], fin - myfile.tellp() - 16);
 
                 }
                 msgBox.exec();
@@ -474,85 +572,8 @@ void savetoless(int leng, string traduc, int liemp, string ruta, char* memblock,
                     myfile.close();
                 }
             }
-            return;
         }
-        if (nleng <= 16) { //This is for when a sentence takes 2 lines and the new one only takes one.
-            myfile.open(ruta, ios::binary | ios::trunc);
-            if (myfile.is_open())
-            {
-                myfile.seekp(0, std::ios::beg);
-                myfile.write(&memblock[0], 10);
-
-                char lastlin = memblock[10];
-                char lastlind = memblock[11];
-                lastlind = lastlind - 16;
-                if (lastlind == -16 ) {
-                    lastlin = lastlin - 1;
-                }
-                myfile.write(&lastlin, 1);
-                myfile.write(&lastlind, 1);
-                myfile.write(&memblock[12], findice - 12);
-
-                int i = 1;
-                int t = 4;
-                char newposhex = startingbit;
-                while (i < (lineas - linusu))
-                {
-                    int tmp = memblock[findice + t - 5];
-                    int tmpdos = memblock[findice + t - 1];
-                    string tempura = int_to_hex(tmp);
-                    tmp = stoi(tempura, 0, 16);
-                    if (i != 1) {
-                        tmp = tmp - 16;
-                    }
-                    string tempurados = int_to_hex(tmpdos);
-                    tmpdos = stoi(tempurados, 0, 16);
-                    tmpdos = tmpdos - 16;
-                    if (tmp < 0) {
-                        tmp = tmp + 256;
-                    }
-                    if (tmpdos < 0) {
-                        tmpdos = tmpdos + 256;
-                    }
-                    if (tmp > tmpdos) {
-                        newposhex++;
-                    }
-                    char dirindi = poshex;
-                    char dirando = newposhex;
-                    myfile.write(&valres[0], 2);
-                    myfile.write(&dirando, 1);
-                    myfile.write(&dirindi, 1);
-
-                    poshex = memblock[findice + t] * 1024 + memblock[findice + t + 1] * 512 + memblock[findice + t + 2] * 256 + memblock[findice + t + 3];
-                    t = t + 4;
-                    linhex = int_to_hex(poshex);
-                    poshex = stoi(linhex, 0, 16);
-                    poshex = poshex - 16;
-
-                    i++;
-                }
-                //Escribir despues de modificar el indice:
-
-                t = t - 4;
-                myfile.write(&memblock[findice + t], bileng - myfile.tellp()); //Escribe el original hasta el bit de longitud
-                myfile.write(&nleng, 1); //Escribe el tamaño de memoria del tamaño de la translation
-                myfile.write(&memblock[bileng + 1], liemp - myfile.tellp()); //Sigue escribiendo el ori hasta el liemp (restando lo ya avanzado)
-                myfile.write(&traduc[0], nleng); //Inserta la traduccion
-                int restlin = 16 - nleng;
-                int version = memblock[13]; //Get ftd version
-                if (version == 1){
-                    restlin = 12 - nleng;
-                }
-                myfile.write(&valres[0], restlin); //Como es de menor tamaño, rellena los bits faltantes con el array ese chungo que he echo.
-                //Para la posicion de memblock es la suma de todos los tamaños anteriores, y para el tamaño es "end" - el memblock.
-                int pls = myfile.tellp();
-                myfile.write(&memblock[pls + 16], fin - myfile.tellp() - 16);
-
-            }
-            msgBox.exec();
-            myfile.close();
-        }
-        else {
+        else { //This is for when a sentence takes 1 lines and the new one too.
             myfile.open(ruta, ios::binary | ios::trunc);
             if (myfile.is_open())
             {
@@ -569,21 +590,289 @@ void savetoless(int leng, string traduc, int liemp, string ruta, char* memblock,
             }
         }
     }
+    else{
+        if (leng > 12) { // Si la frase original es mayor que 1 linea
+            if (leng > 28) { // Si la frase original es mayor que 2 lineas
+                if (nleng > 12 && nleng <= 28) { //This is for when a sentence takes 3 lines and the new one only takes 2.
+                    myfile.open(ruta, ios::binary | ios::trunc);
+                    if (myfile.is_open())
+                    {
+                        myfile.seekp(0, std::ios::beg);
+                        myfile.write(&memblock[0], 10);
 
-    else { //This is for when a sentence takes 1 lines and the new one too.
-        myfile.open(ruta, ios::binary | ios::trunc);
-        if (myfile.is_open())
-        {
-            myfile.seekp(0, std::ios::beg); //Puntero al inicio
-            myfile.write(&memblock[0], bileng); //Escribe el original hasta el bit de longitud
-            myfile.write(&nleng, 1); //Escribe el tamaño de memoria del tamaño de la translation
-            myfile.write(&memblock[bileng + 1], liemp - (bileng + 1)); //Sigue escribiendo el ori hasta el liemp (restando lo ya avanzado)
-            myfile.write(&traduc[0], nleng); //Inserta la traduccion
-            myfile.write(&valres[0], resto); //Como es de menor tamaño, rellena los bits faltantes con el array ese chungo que he echo.
-            //Para la posicion de memblock es la suma de todos los tamaños anteriores, y para el tamaño es "end" - el memblock.
-            myfile.write(&memblock[bileng + 1 + (liemp - (bileng + 1)) + nleng + resto], fin - (bileng + 1 + (liemp - (bileng + 1)) + nleng + resto));
-            msgBox.exec();
-            myfile.close();
+                        char lastlin = memblock[10];
+                        char lastlind = memblock[11];
+                        lastlind = lastlind - 16;
+                        if (lastlind == -16) {
+                            lastlin = lastlin - 1;
+                        }
+                        myfile.write(&lastlin, 1);
+                        myfile.write(&lastlind, 1);
+                        myfile.write(&memblock[12], findice - 12);
+
+                        int i = 1;
+                        int t = 4;
+                        char newposhex = startingbit;
+                        while (i < (lineas - linusu))
+                        {
+                            int tmp = memblock[findice + t - 5];
+                            int tmpdos = memblock[findice + t - 1];
+                            string tempura = int_to_hex(tmp);
+                            tmp = stoi(tempura, 0, 16);
+                            if (i != 1) {
+                                tmp = tmp - 16;
+                            }
+                            string tempurados = int_to_hex(tmpdos);
+                            tmpdos = stoi(tempurados, 0, 16);
+                            tmpdos = tmpdos - 16;
+                            if (tmp < 0) {
+                                tmp = tmp + 256;
+                            }
+                            if (tmpdos < 0) {
+                                tmpdos = tmpdos + 256;
+                            }
+                            if (tmp > tmpdos) {
+                                newposhex++;
+                            }
+                            char dirindi = poshex;
+                            char dirando = newposhex;
+                            myfile.write(&valres[0], 2);
+                            myfile.write(&dirando, 1);
+                            myfile.write(&dirindi, 1);
+
+                            poshex = memblock[findice + t] * 1024 + memblock[findice + t + 1] * 512 + memblock[findice + t + 2] * 256 + memblock[findice + t + 3];
+                            t = t + 4;
+                            linhex = int_to_hex(poshex);
+                            poshex = stoi(linhex, 0, 16);
+                            poshex = poshex - 16;
+
+                            i++;
+                        }
+                        //Escribir despues de modificar el indice:
+
+                        t = t - 4;
+                        myfile.write(&memblock[findice + t], bileng - myfile.tellp()); //Escribe el original hasta el bit de longitud
+                        myfile.write(&nleng, 1); //Escribe el tamaño de memoria del tamaño de la translation
+                        myfile.write(&memblock[bileng + 1], liemp - myfile.tellp()); //Sigue escribiendo el ori hasta el liemp (restando lo ya avanzado)
+                        myfile.write(&traduc[0], nleng); //Inserta la traduccion
+                        int restlin = 32 - nleng;
+                        int version = memblock[13]; //Get ftd version
+                        if (version == 1){
+                            restlin = 28 - nleng;
+                        }
+                        myfile.write(&valres[0], restlin); //Como es de menor tamaño, rellena los bits faltantes con el array ese chungo que he echo.
+                        //Para la posicion de memblock es la suma de todos los tamaños anteriores, y para el tamaño es "end" - el memblock.
+                        int pls = myfile.tellp();
+                        myfile.write(&memblock[pls + 16], fin - myfile.tellp() - 16);
+
+                    }
+                    msgBox.exec();
+                    myfile.close();
+                }
+                else if (nleng <= 12) {
+                    myfile.open(ruta, ios::binary | ios::trunc);
+                    if (myfile.is_open())
+                    {
+                        myfile.seekp(0, std::ios::beg);
+                        myfile.write(&memblock[0], 10);
+
+                        char lastlin = memblock[10];
+                        char lastlind = memblock[11];
+                        lastlind = lastlind - 32;
+                        if ((lastlind == -32) || (lastlind == -16)) {
+                            lastlin = lastlin - 1;
+                        }
+                        myfile.write(&lastlin, 1);
+                        myfile.write(&lastlind, 1);
+
+                        myfile.write(&memblock[12], findice - 12);
+
+                        int i = 1;
+                        int t = 4;
+                        char newposhex = startingbit;
+                        poshex = poshex - 16;
+                        while (i < (lineas - linusu))
+                        {
+                            int tmp = memblock[findice + t - 5];
+                            int tmpdos = memblock[findice + t - 1];
+                            string tempura = int_to_hex(tmp);
+                            tmp = stoi(tempura, 0, 16);
+                            if (i != 1) {
+                                tmp = tmp - 32;
+                            }
+                            string tempurados = int_to_hex(tmpdos);
+                            tmpdos = stoi(tempurados, 0, 16);
+                            tmpdos = tmpdos - 32;
+                            if (tmp < 0) {
+                                tmp = tmp + 256;
+                            }
+                            if (tmpdos < 0) {
+                                tmpdos = tmpdos + 256;
+                            }
+                            if (tmp > tmpdos) {
+                                newposhex++;
+                            }
+                            char dirindi = poshex;
+                            char dirando = newposhex;
+                            myfile.write(&valres[0], 2);
+                            myfile.write(&dirando, 1);
+                            myfile.write(&dirindi, 1);
+
+                            poshex = memblock[findice + t] * 1024 + memblock[findice + t + 1] * 512 + memblock[findice + t + 2] * 256 + memblock[findice + t + 3];
+                            t = t + 4;
+                            linhex = int_to_hex(poshex);
+                            poshex = stoi(linhex, 0, 16);
+                            poshex = poshex - 32;
+
+                            i++;
+                        }
+                        //Escribir despues de modificar el indice:
+
+                        t = t - 4;
+                        myfile.write(&memblock[findice + t], bileng - myfile.tellp()); //Escribe el original hasta el bit de longitud
+                        myfile.write(&nleng, 1); //Escribe el tamaño de memoria del tamaño de la translation
+                        myfile.write(&memblock[bileng + 1], liemp - myfile.tellp()); //Sigue escribiendo el ori hasta el liemp (restando lo ya avanzado)
+                        myfile.write(&traduc[0], nleng); //Inserta la traduccion
+                        int restlin = 16 - nleng;
+                        int version = memblock[13]; //Get ftd version
+                        if (version == 1){
+                            restlin = 12 - nleng;
+                        }
+                        myfile.write(&valres[0], restlin); //Como es de menor tamaño, rellena los bits faltantes con el array ese chungo que he hecho.
+                        //Para la posicion de memblock es la suma de todos los tamaños anteriores, y para el tamaño es "end" - el memblock.
+                        int pls = myfile.tellp();
+                        myfile.write(&memblock[pls + 32], fin - myfile.tellp() - 32);
+
+                    }
+                    msgBox.exec();
+                    myfile.close();
+                }
+                else {
+                    myfile.open(ruta, ios::binary | ios::trunc);
+                    if (myfile.is_open())
+                    {
+                        myfile.seekp(0, std::ios::beg); //Puntero al inicio
+                        myfile.write(&memblock[0], bileng); //Escribe el original hasta el bit de longitud
+                        myfile.write(&nleng, 1); //Escribe el tamaño de memoria del tamaño de la translation
+                        myfile.write(&memblock[bileng + 1], liemp - (bileng + 1)); //Sigue escribiendo el ori hasta el liemp (restando lo ya avanzado)
+                        myfile.write(&traduc[0], nleng); //Inserta la traduccion
+                        myfile.write(&valres[0], resto); //Como es de menor tamaño, rellena los bits faltantes con el array ese chungo que he echo.
+                        //Para la posicion de memblock es la suma de todos los tamaños anteriores, y para el tamaño es "end" - el memblock.
+                        myfile.write(&memblock[bileng + 1 + (liemp - (bileng + 1)) + nleng + resto], fin - (bileng + 1 + (liemp - (bileng + 1)) + nleng + resto));
+                        msgBox.exec();
+                        myfile.close();
+                    }
+                }
+                return;
+            }
+            if (nleng <= 12) { //This is for when a sentence takes 2 lines and the new one only takes one.
+                myfile.open(ruta, ios::binary | ios::trunc);
+                if (myfile.is_open())
+                {
+                    myfile.seekp(0, std::ios::beg);
+                    myfile.write(&memblock[0], 10);
+
+                    char lastlin = memblock[10];
+                    char lastlind = memblock[11];
+                    lastlind = lastlind - 16;
+                    if (lastlind == -16 ) {
+                        lastlin = lastlin - 1;
+                    }
+                    myfile.write(&lastlin, 1);
+                    myfile.write(&lastlind, 1);
+                    myfile.write(&memblock[12], findice - 12);
+
+                    int i = 1;
+                    int t = 4;
+                    char newposhex = startingbit;
+                    while (i < (lineas - linusu))
+                    {
+                        int tmp = memblock[findice + t - 5];
+                        int tmpdos = memblock[findice + t - 1];
+                        string tempura = int_to_hex(tmp);
+                        tmp = stoi(tempura, 0, 16);
+                        if (i != 1) {
+                            tmp = tmp - 16;
+                        }
+                        string tempurados = int_to_hex(tmpdos);
+                        tmpdos = stoi(tempurados, 0, 16);
+                        tmpdos = tmpdos - 16;
+                        if (tmp < 0) {
+                            tmp = tmp + 256;
+                        }
+                        if (tmpdos < 0) {
+                            tmpdos = tmpdos + 256;
+                        }
+                        if (tmp > tmpdos) {
+                            newposhex++;
+                        }
+                        char dirindi = poshex;
+                        char dirando = newposhex;
+                        myfile.write(&valres[0], 2);
+                        myfile.write(&dirando, 1);
+                        myfile.write(&dirindi, 1);
+
+                        poshex = memblock[findice + t] * 1024 + memblock[findice + t + 1] * 512 + memblock[findice + t + 2] * 256 + memblock[findice + t + 3];
+                        t = t + 4;
+                        linhex = int_to_hex(poshex);
+                        poshex = stoi(linhex, 0, 16);
+                        poshex = poshex - 16;
+
+                        i++;
+                    }
+                    //Escribir despues de modificar el indice:
+
+                    t = t - 4;
+                    myfile.write(&memblock[findice + t], bileng - myfile.tellp()); //Escribe el original hasta el bit de longitud
+                    myfile.write(&nleng, 1); //Escribe el tamaño de memoria del tamaño de la translation
+                    myfile.write(&memblock[bileng + 1], liemp - myfile.tellp()); //Sigue escribiendo el ori hasta el liemp (restando lo ya avanzado)
+                    myfile.write(&traduc[0], nleng); //Inserta la traduccion
+                    int restlin = 16 - nleng;
+                    int version = memblock[13]; //Get ftd version
+                    if (version == 1){
+                        restlin = 12 - nleng;
+                    }
+                    myfile.write(&valres[0], restlin); //Como es de menor tamaño, rellena los bits faltantes con el array ese chungo que he echo.
+                    //Para la posicion de memblock es la suma de todos los tamaños anteriores, y para el tamaño es "end" - el memblock.
+                    int pls = myfile.tellp();
+                    myfile.write(&memblock[pls + 16], fin - myfile.tellp() - 16);
+
+                }
+                msgBox.exec();
+                myfile.close();
+            }
+            else {
+                myfile.open(ruta, ios::binary | ios::trunc);
+                if (myfile.is_open())
+                {
+                    myfile.seekp(0, std::ios::beg); //Puntero al inicio
+                    myfile.write(&memblock[0], bileng); //Escribe el original hasta el bit de longitud
+                    myfile.write(&nleng, 1); //Escribe el tamaño de memoria del tamaño de la translation
+                    myfile.write(&memblock[bileng + 1], liemp - (bileng + 1)); //Sigue escribiendo el ori hasta el liemp (restando lo ya avanzado)
+                    myfile.write(&traduc[0], nleng); //Inserta la traduccion
+                    myfile.write(&valres[0], resto); //Como es de menor tamaño, rellena los bits faltantes con el array ese chungo que he echo.
+                    //Para la posicion de memblock es la suma de todos los tamaños anteriores, y para el tamaño es "end" - el memblock.
+                    myfile.write(&memblock[bileng + 1 + (liemp - (bileng + 1)) + nleng + resto], fin - (bileng + 1 + (liemp - (bileng + 1)) + nleng + resto));
+                    msgBox.exec();
+                    myfile.close();
+                }
+            }
+        }
+        else { //This is for when a sentence takes 1 lines and the new one too.
+            myfile.open(ruta, ios::binary | ios::trunc);
+            if (myfile.is_open())
+            {
+                myfile.seekp(0, std::ios::beg); //Puntero al inicio
+                myfile.write(&memblock[0], bileng); //Escribe el original hasta el bit de longitud
+                myfile.write(&nleng, 1); //Escribe el tamaño de memoria del tamaño de la translation
+                myfile.write(&memblock[bileng + 1], liemp - (bileng + 1)); //Sigue escribiendo el ori hasta el liemp (restando lo ya avanzado)
+                myfile.write(&traduc[0], nleng); //Inserta la traduccion
+                myfile.write(&valres[0], resto); //Como es de menor tamaño, rellena los bits faltantes con el array ese chungo que he echo.
+                //Para la posicion de memblock es la suma de todos los tamaños anteriores, y para el tamaño es "end" - el memblock.
+                myfile.write(&memblock[bileng + 1 + (liemp - (bileng + 1)) + nleng + resto], fin - (bileng + 1 + (liemp - (bileng + 1)) + nleng + resto));
+                msgBox.exec();
+                myfile.close();
+            }
         }
     }
 }
@@ -601,293 +890,588 @@ void savetomore(int leng, string traduc, int liemp, string ruta, char* memblock,
     QMessageBox msgBox;
     msgBox.setText("Saved");
     string valres = { '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0' , '\0' , '\0' , '\0' , '\0' , '\0' , '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0' }; //Para añadir ceros, no se me ocurre nada mejor
-    if (leng > 16 && leng <= 32) { // Si la frase original ocupa 2 lineas
-        if (nleng > 47) {
-            msgBox.setText("New line takes 4 lines or more. Not supported for now.");
-            msgBox.exec();
-            exit(EXIT_FAILURE);
-        }
-        else if (nleng <= 48 && nleng > 32) {
-            myfile.open(ruta, ios::binary | ios::trunc);
-            if (myfile.is_open())
-            {
-                myfile.seekp(0, std::ios::beg);
-                myfile.write(&memblock[0], 10);
-
-                char lastlin = memblock[10];
-                char lastlind = memblock[11];
-                lastlind = lastlind + 16;
-                if (lastlind == 0) {
-                    lastlin = lastlin + 1;
-                }
-                myfile.write(&lastlin, 1);
-                myfile.write(&lastlind, 1);
-                myfile.write(&memblock[12], findice - 12);
-
-                int i = 1;
-                int t = 4;
-                char newposhex = startingbit;
-                while (i < (lineas - linusu))
-                {
-                    int tmp = memblock[findice + t - 5];
-                    int tmpdos = memblock[findice + t - 1];
-                    string tempura = int_to_hex(tmp);
-                    tmp = stoi(tempura, 0, 16);
-                    if (i != 1) {
-                        tmp = tmp + 16;
-                    }
-                    string tempurados = int_to_hex(tmpdos);
-                    tmpdos = stoi(tempurados, 0, 16);
-                    tmpdos = tmpdos + 16;
-                    if (tmp > 255) {
-                        tmp = tmp - 256;
-                    }
-                    if (tmpdos > 255) {
-                        tmpdos = tmpdos - 256;
-                    }
-                    if (tmp > tmpdos) {
-                        newposhex++;
-                    }
-                    char dirindi = poshex;
-                    char dirando = newposhex;
-                    myfile.write(&valres[0], 2);
-                    myfile.write(&dirando, 1);
-                    myfile.write(&dirindi, 1);
-
-                    poshex = memblock[findice + t] * 1024 + memblock[findice + t + 1] * 512 + memblock[findice + t + 2] * 256 + memblock[findice + t + 3];
-                    t = t + 4;
-                    linhex = int_to_hex(poshex);
-                    poshex = stoi(linhex, 0, 16);
-                    poshex = poshex + 16;
-
-                    i++;
-                }
-                //Escribir despues de modificar el indice:
-
-                t = t - 4;
-                myfile.write(&memblock[findice + t], bileng - myfile.tellp()); //Escribe el original hasta el bit de longitud
-                myfile.write(&nleng, 1); //Escribe el tamaño de memoria del tamaño de la translation
-                myfile.write(&memblock[bileng + 1], liemp - myfile.tellp()); //Sigue escribiendo el ori hasta el liemp (restando lo ya avanzado)
-                myfile.write(&traduc[0], nleng); //Inserta la traduccion
-                int restlin = 48 - nleng;
-                int version = memblock[13]; //Get ftd version
-                if (version == 1){
-                    restlin = 44 - nleng;
-                }
-                myfile.write(&valres[0], restlin); //Como es de menor tamaño, rellena los bits faltantes con el array ese chungo que he echo.
-                //Para la posicion de memblock es la suma de todos los tamaños anteriores, y para el tamaño es "end" - el memblock.
-                int pls = myfile.tellp();
-                myfile.write(&memblock[pls - 16], fin - myfile.tellp() + 16);
-
-            }
-            msgBox.exec();
-            myfile.close();
-        }
-        else {
-            myfile.open(ruta, ios::binary | ios::trunc);
-            if (myfile.is_open())
-            {
-                myfile.seekp(0, std::ios::beg); //Puntero al inicio
-                myfile.write(&memblock[0], bileng); //Escribe el original hasta el bit de longitud
-                myfile.write(&nleng, 1); //Escribe el tamaño de memoria del tamaño de la translation
-                myfile.write(&memblock[bileng + 1], liemp - (bileng + 1)); //Sigue escribiendo el ori hasta el liemp (restando lo ya avanzado)
-                myfile.write(&traduc[0], nleng); //Inserta la traduccion
-                //Para la posicion de memblock es la suma de todos los tamaños anteriores, y para el tamaño es "end" - el memblock.
-                myfile.write(&memblock[myfile.tellp()], fin - myfile.tellp());
+    int version = memblock[13]; //Get ftd version
+    if (version == 0){
+        if (leng > 16 && leng <= 32) { // Si la frase original ocupa 2 lineas
+            if (nleng > 47) {
+                msgBox.setText("New line takes 4 lines or more. Not supported for now.");
                 msgBox.exec();
-                myfile.close();
-            }
-        }
-    }
-    else if (leng > 32) { // Si la frase original ocupa 3 lineas
-        if (nleng > 48) {
-            msgBox.setText("New line takes 4 lines or more. Not supported for now.");
-            msgBox.exec();
                 exit(EXIT_FAILURE);
-        }
-        else {
-            myfile.open(ruta, ios::binary | ios::trunc);
-            if (myfile.is_open())
-            {
-                myfile.seekp(0, std::ios::beg); //Puntero al inicio
-                myfile.write(&memblock[0], bileng); //Escribe el original hasta el bit de longitud
-                myfile.write(&nleng, 1); //Escribe el tamaño de memoria del tamaño de la translation
-                myfile.write(&memblock[bileng + 1], liemp - (bileng + 1)); //Sigue escribiendo el ori hasta el liemp (restando lo ya avanzado)
-                myfile.write(&traduc[0], nleng); //Inserta la traduccion
-                //Para la posicion de memblock es la suma de todos los tamaños anteriores, y para el tamaño es "end" - el memblock.
-                myfile.write(&memblock[myfile.tellp()], fin - myfile.tellp());
+            }
+            else if (nleng <= 48 && nleng > 32) {
+                myfile.open(ruta, ios::binary | ios::trunc);
+                if (myfile.is_open())
+                {
+                    myfile.seekp(0, std::ios::beg);
+                    myfile.write(&memblock[0], 10);
+
+                    char lastlin = memblock[10];
+                    char lastlind = memblock[11];
+                    lastlind = lastlind + 16;
+                    if (lastlind == 0) {
+                        lastlin = lastlin + 1;
+                    }
+                    myfile.write(&lastlin, 1);
+                    myfile.write(&lastlind, 1);
+                    myfile.write(&memblock[12], findice - 12);
+
+                    int i = 1;
+                    int t = 4;
+                    char newposhex = startingbit;
+                    while (i < (lineas - linusu))
+                    {
+                        int tmp = memblock[findice + t - 5];
+                        int tmpdos = memblock[findice + t - 1];
+                        string tempura = int_to_hex(tmp);
+                        tmp = stoi(tempura, 0, 16);
+                        if (i != 1) {
+                            tmp = tmp + 16;
+                        }
+                        string tempurados = int_to_hex(tmpdos);
+                        tmpdos = stoi(tempurados, 0, 16);
+                        tmpdos = tmpdos + 16;
+                        if (tmp > 255) {
+                            tmp = tmp - 256;
+                        }
+                        if (tmpdos > 255) {
+                            tmpdos = tmpdos - 256;
+                        }
+                        if (tmp > tmpdos) {
+                            newposhex++;
+                        }
+                        char dirindi = poshex;
+                        char dirando = newposhex;
+                        myfile.write(&valres[0], 2);
+                        myfile.write(&dirando, 1);
+                        myfile.write(&dirindi, 1);
+
+                        poshex = memblock[findice + t] * 1024 + memblock[findice + t + 1] * 512 + memblock[findice + t + 2] * 256 + memblock[findice + t + 3];
+                        t = t + 4;
+                        linhex = int_to_hex(poshex);
+                        poshex = stoi(linhex, 0, 16);
+                        poshex = poshex + 16;
+
+                        i++;
+                    }
+                    //Escribir despues de modificar el indice:
+
+                    t = t - 4;
+                    myfile.write(&memblock[findice + t], bileng - myfile.tellp()); //Escribe el original hasta el bit de longitud
+                    myfile.write(&nleng, 1); //Escribe el tamaño de memoria del tamaño de la translation
+                    myfile.write(&memblock[bileng + 1], liemp - myfile.tellp()); //Sigue escribiendo el ori hasta el liemp (restando lo ya avanzado)
+                    myfile.write(&traduc[0], nleng); //Inserta la traduccion
+                    int restlin = 48 - nleng;
+                    int version = memblock[13]; //Get ftd version
+                    if (version == 1){
+                        restlin = 44 - nleng;
+                    }
+                    myfile.write(&valres[0], restlin); //Como es de menor tamaño, rellena los bits faltantes con el array ese chungo que he echo.
+                    //Para la posicion de memblock es la suma de todos los tamaños anteriores, y para el tamaño es "end" - el memblock.
+                    int pls = myfile.tellp();
+                    myfile.write(&memblock[pls - 16], fin - myfile.tellp() + 16);
+
+                }
                 msgBox.exec();
                 myfile.close();
+            }
+            else {
+                myfile.open(ruta, ios::binary | ios::trunc);
+                if (myfile.is_open())
+                {
+                    myfile.seekp(0, std::ios::beg); //Puntero al inicio
+                    myfile.write(&memblock[0], bileng); //Escribe el original hasta el bit de longitud
+                    myfile.write(&nleng, 1); //Escribe el tamaño de memoria del tamaño de la translation
+                    myfile.write(&memblock[bileng + 1], liemp - (bileng + 1)); //Sigue escribiendo el ori hasta el liemp (restando lo ya avanzado)
+                    myfile.write(&traduc[0], nleng); //Inserta la traduccion
+                    //Para la posicion de memblock es la suma de todos los tamaños anteriores, y para el tamaño es "end" - el memblock.
+                    myfile.write(&memblock[myfile.tellp()], fin - myfile.tellp());
+                    msgBox.exec();
+                    myfile.close();
+                }
+            }
+        }
+        else if (leng > 32) { // Si la frase original ocupa 3 lineas
+            if (nleng > 48) {
+                msgBox.setText("New line takes 4 lines or more. Not supported for now.");
+                msgBox.exec();
+                    exit(EXIT_FAILURE);
+            }
+            else {
+                myfile.open(ruta, ios::binary | ios::trunc);
+                if (myfile.is_open())
+                {
+                    myfile.seekp(0, std::ios::beg); //Puntero al inicio
+                    myfile.write(&memblock[0], bileng); //Escribe el original hasta el bit de longitud
+                    myfile.write(&nleng, 1); //Escribe el tamaño de memoria del tamaño de la translation
+                    myfile.write(&memblock[bileng + 1], liemp - (bileng + 1)); //Sigue escribiendo el ori hasta el liemp (restando lo ya avanzado)
+                    myfile.write(&traduc[0], nleng); //Inserta la traduccion
+                    //Para la posicion de memblock es la suma de todos los tamaños anteriores, y para el tamaño es "end" - el memblock.
+                    myfile.write(&memblock[myfile.tellp()], fin - myfile.tellp());
+                    msgBox.exec();
+                    myfile.close();
+                }
+            }
+        }
+        else { // Si la frase original ocupa 1 lineas
+            if (nleng > 16 && nleng <= 32) { // Y la nueva 2
+                myfile.open(ruta, ios::binary | ios::trunc);
+                if (myfile.is_open())
+                {
+                    myfile.seekp(0, std::ios::beg);
+                    myfile.write(&memblock[0], 10);
+
+                    char lastlin = memblock[10];
+                    char lastlind = memblock[11];
+                    lastlind = lastlind + 16;
+                    if (lastlind == 0) {
+                        lastlin = lastlin + 1;
+                    }
+                    myfile.write(&lastlin, 1);
+                    myfile.write(&lastlind, 1);
+                    myfile.write(&memblock[12], findice - 12);
+
+                    int i = 1;
+                    int t = 4;
+                    char newposhex = startingbit;
+                    while (i < (lineas - linusu))
+                    {
+                        int tmp = memblock[findice + t - 5];
+                        int tmpdos = memblock[findice + t - 1];
+                        string tempura = int_to_hex(tmp);
+                        tmp = stoi(tempura, 0, 16);
+                        if (i != 1) {
+                            tmp = tmp + 16;
+                        }
+                        string tempurados = int_to_hex(tmpdos);
+                        tmpdos = stoi(tempurados, 0, 16);
+                        tmpdos = tmpdos + 16;
+                        if (tmp > 255) {
+                            tmp = tmp - 256;
+                        }
+                        if (tmpdos > 255) {
+                            tmpdos = tmpdos - 256;
+                        }
+                        if (tmp > tmpdos) {
+                            newposhex++;
+                        }
+                        char dirindi = poshex;
+                        char dirando = newposhex;
+                        myfile.write(&valres[0], 2);
+                        myfile.write(&dirando, 1);
+                        myfile.write(&dirindi, 1);
+
+                        poshex = memblock[findice + t] * 1024 + memblock[findice + t + 1] * 512 + memblock[findice + t + 2] * 256 + memblock[findice + t + 3];
+                        t = t + 4;
+                        linhex = int_to_hex(poshex);
+                        poshex = stoi(linhex, 0, 16);
+                        poshex = poshex + 16;
+
+                        i++;
+                    }
+                    //Escribir despues de modificar el indice:
+
+                    t = t - 4;
+                    myfile.write(&memblock[findice + t], bileng - myfile.tellp()); //Escribe el original hasta el bit de longitud
+                    myfile.write(&nleng, 1); //Escribe el tamaño de memoria del tamaño de la translation
+                    myfile.write(&memblock[bileng + 1], liemp - myfile.tellp()); //Sigue escribiendo el ori hasta el liemp (restando lo ya avanzado)
+                    myfile.write(&traduc[0], nleng); //Inserta la traduccion
+                    int restlin = 32 - nleng;
+                    int version = memblock[13]; //Get ftd version
+                    if (version == 1){
+                        restlin = 28 - nleng;
+                    }
+                    myfile.write(&valres[0], restlin); //Como es de menor tamaño, rellena los bits faltantes con el array ese chungo que he echo.
+                    //Para la posicion de memblock es la suma de todos los tamaños anteriores, y para el tamaño es "end" - el memblock.
+                    int pls = myfile.tellp();
+                    myfile.write(&memblock[pls - 16], fin - myfile.tellp() + 16);
+
+                }
+                msgBox.exec();
+                myfile.close();
+            }
+            else if (nleng > 32) { // Y la nueva 3
+                myfile.open(ruta, ios::binary | ios::trunc);
+                if (myfile.is_open())
+                {
+                    myfile.seekp(0, std::ios::beg);
+                    myfile.write(&memblock[0], 10);
+
+                    char lastlin = memblock[10];
+                    char lastlind = memblock[11];
+                    lastlind = lastlind + 32;
+                    if ((lastlind == 16) || (lastlind == 0)) {
+                        lastlin = lastlin + 1;
+                    }
+                    myfile.write(&lastlin, 1);
+                    myfile.write(&lastlind, 1);
+                    myfile.write(&memblock[12], findice - 12);
+
+                    int i = 1;
+                    int t = 4;
+                    char newposhex = startingbit;
+                    poshex = poshex + 16;
+                    while (i < (lineas - linusu))
+                    {
+                        int tmp = memblock[findice + t - 5];
+                        int tmpdos = memblock[findice + t - 1];
+                        string tempura = int_to_hex(tmp);
+                        tmp = stoi(tempura, 0, 16);
+                        if (i != 1) {
+                            tmp = tmp + 32;
+                        }
+                        string tempurados = int_to_hex(tmpdos);
+                        tmpdos = stoi(tempurados, 0, 16);
+                        tmpdos = tmpdos + 32;
+                        if (tmp > 255) {
+                            tmp = tmp - 256;
+                        }
+                        if (tmpdos > 255) {
+                            tmpdos = tmpdos - 256;
+                        }
+                        if (tmp > tmpdos) {
+                            newposhex++;
+                        }
+                        char dirindi = poshex;
+                        char dirando = newposhex;
+                        myfile.write(&valres[0], 2);
+                        myfile.write(&dirando, 1);
+                        myfile.write(&dirindi, 1);
+
+                        poshex = memblock[findice + t] * 1024 + memblock[findice + t + 1] * 512 + memblock[findice + t + 2] * 256 + memblock[findice + t + 3];
+                        t = t + 4;
+                        linhex = int_to_hex(poshex);
+                        poshex = stoi(linhex, 0, 16);
+                        poshex = poshex + 32;
+
+                        i++;
+                    }
+                    //Escribir despues de modificar el indice:
+
+                    t = t - 4;
+                    myfile.write(&memblock[findice + t], bileng - myfile.tellp()); //Escribe el original hasta el bit de longitud
+                    myfile.write(&nleng, 1); //Escribe el tamaño de memoria del tamaño de la translation
+                    myfile.write(&memblock[bileng + 1], liemp - myfile.tellp()); //Sigue escribiendo el ori hasta el liemp (restando lo ya avanzado)
+                    myfile.write(&traduc[0], nleng); //Inserta la traduccion
+                    int restlin = 48 - nleng;
+                    int version = memblock[13]; //Get ftd version
+                    if (version == 1){
+                        restlin = 44 - nleng;
+                    }
+                    myfile.write(&valres[0], restlin); //Como es de menor tamaño, rellena los bits faltantes con el array ese chungo que he echo.
+                    //Para la posicion de memblock es la suma de todos los tamaños anteriores, y para el tamaño es "end" - el memblock.
+                    int pls = myfile.tellp();
+                    myfile.write(&memblock[pls - 32], fin - myfile.tellp() + 32);
+
+                }
+                msgBox.exec();
+                myfile.close();
+            }
+            else {
+                myfile.open(ruta, ios::binary | ios::trunc);
+                if (myfile.is_open())
+                {
+                    myfile.seekp(0, std::ios::beg); //Puntero al inicio
+                    myfile.write(&memblock[0], bileng); //Escribe el original hasta el bit de longitud
+                    myfile.write(&nleng, 1); //Escribe el tamaño de memoria del tamaño de la translation
+                    myfile.write(&memblock[bileng + 1], liemp - (bileng + 1)); //Sigue escribiendo el ori hasta el liemp (restando lo ya avanzado)
+                    myfile.write(&traduc[0], nleng); //Inserta la traduccion
+                    //Para la posicion de memblock es la suma de todos los tamaños anteriores, y para el tamaño es "end" - el memblock.
+                    myfile.write(&memblock[myfile.tellp()], fin - myfile.tellp());
+                    msgBox.exec();
+                    myfile.close();
+                }
             }
         }
     }
-    else { // Si la frase original ocupa 1 lineas
-        if (nleng > 16 && nleng <= 32) { // Y la nueva 2
-            myfile.open(ruta, ios::binary | ios::trunc);
-            if (myfile.is_open())
-            {
-                myfile.seekp(0, std::ios::beg);
-                myfile.write(&memblock[0], 10);
-
-                char lastlin = memblock[10];
-                char lastlind = memblock[11];
-                lastlind = lastlind + 16;
-                if (lastlind == 0) {
-                    lastlin = lastlin + 1;
-                }
-                myfile.write(&lastlin, 1);
-                myfile.write(&lastlind, 1);
-                myfile.write(&memblock[12], findice - 12);
-
-                int i = 1;
-                int t = 4;
-                char newposhex = startingbit;
-                while (i < (lineas - linusu))
-                {
-                    int tmp = memblock[findice + t - 5];
-                    int tmpdos = memblock[findice + t - 1];
-                    string tempura = int_to_hex(tmp);
-                    tmp = stoi(tempura, 0, 16);
-                    if (i != 1) {
-                        tmp = tmp + 16;
-                    }
-                    string tempurados = int_to_hex(tmpdos);
-                    tmpdos = stoi(tempurados, 0, 16);
-                    tmpdos = tmpdos + 16;
-                    if (tmp > 255) {
-                        tmp = tmp - 256;
-                    }
-                    if (tmpdos > 255) {
-                        tmpdos = tmpdos - 256;
-                    }
-                    if (tmp > tmpdos) {
-                        newposhex++;
-                    }
-                    char dirindi = poshex;
-                    char dirando = newposhex;
-                    myfile.write(&valres[0], 2);
-                    myfile.write(&dirando, 1);
-                    myfile.write(&dirindi, 1);
-
-                    poshex = memblock[findice + t] * 1024 + memblock[findice + t + 1] * 512 + memblock[findice + t + 2] * 256 + memblock[findice + t + 3];
-                    t = t + 4;
-                    linhex = int_to_hex(poshex);
-                    poshex = stoi(linhex, 0, 16);
-                    poshex = poshex + 16;
-
-                    i++;
-                }
-                //Escribir despues de modificar el indice:
-
-                t = t - 4;
-                myfile.write(&memblock[findice + t], bileng - myfile.tellp()); //Escribe el original hasta el bit de longitud
-                myfile.write(&nleng, 1); //Escribe el tamaño de memoria del tamaño de la translation
-                myfile.write(&memblock[bileng + 1], liemp - myfile.tellp()); //Sigue escribiendo el ori hasta el liemp (restando lo ya avanzado)
-                myfile.write(&traduc[0], nleng); //Inserta la traduccion
-                int restlin = 32 - nleng;
-                int version = memblock[13]; //Get ftd version
-                if (version == 1){
-                    restlin = 28 - nleng;
-                }
-                myfile.write(&valres[0], restlin); //Como es de menor tamaño, rellena los bits faltantes con el array ese chungo que he echo.
-                //Para la posicion de memblock es la suma de todos los tamaños anteriores, y para el tamaño es "end" - el memblock.
-                int pls = myfile.tellp();
-                myfile.write(&memblock[pls - 16], fin - myfile.tellp() + 16);
-
+    else{
+        if (leng > 12 && leng <= 28) { // Si la frase original ocupa 2 lineas
+            if (nleng > 43) {
+                msgBox.setText("New line takes 4 lines or more. Not supported for now.");
+                msgBox.exec();
+                exit(EXIT_FAILURE);
             }
-            msgBox.exec();
-            myfile.close();
-        }
-        else if (nleng > 32) { // Y la nueva 3
-            myfile.open(ruta, ios::binary | ios::trunc);
-            if (myfile.is_open())
-            {
-                myfile.seekp(0, std::ios::beg);
-                myfile.write(&memblock[0], 10);
-
-                char lastlin = memblock[10];
-                char lastlind = memblock[11];
-                lastlind = lastlind + 32;
-                if ((lastlind == 16) || (lastlind == 0)) {
-                    lastlin = lastlin + 1;
-                }
-                myfile.write(&lastlin, 1);
-                myfile.write(&lastlind, 1);
-                myfile.write(&memblock[12], findice - 12);
-
-                int i = 1;
-                int t = 4;
-                char newposhex = startingbit;
-                poshex = poshex + 16;
-                while (i < (lineas - linusu))
+            else if (nleng <= 44 && nleng > 28) {
+                myfile.open(ruta, ios::binary | ios::trunc);
+                if (myfile.is_open())
                 {
-                    int tmp = memblock[findice + t - 5];
-                    int tmpdos = memblock[findice + t - 1];
-                    string tempura = int_to_hex(tmp);
-                    tmp = stoi(tempura, 0, 16);
-                    if (i != 1) {
-                        tmp = tmp + 32;
-                    }
-                    string tempurados = int_to_hex(tmpdos);
-                    tmpdos = stoi(tempurados, 0, 16);
-                    tmpdos = tmpdos + 32;
-                    if (tmp > 255) {
-                        tmp = tmp - 256;
-                    }
-                    if (tmpdos > 255) {
-                        tmpdos = tmpdos - 256;
-                    }
-                    if (tmp > tmpdos) {
-                        newposhex++;
-                    }
-                    char dirindi = poshex;
-                    char dirando = newposhex;
-                    myfile.write(&valres[0], 2);
-                    myfile.write(&dirando, 1);
-                    myfile.write(&dirindi, 1);
+                    myfile.seekp(0, std::ios::beg);
+                    myfile.write(&memblock[0], 10);
 
-                    poshex = memblock[findice + t] * 1024 + memblock[findice + t + 1] * 512 + memblock[findice + t + 2] * 256 + memblock[findice + t + 3];
-                    t = t + 4;
-                    linhex = int_to_hex(poshex);
-                    poshex = stoi(linhex, 0, 16);
-                    poshex = poshex + 32;
+                    char lastlin = memblock[10];
+                    char lastlind = memblock[11];
+                    lastlind = lastlind + 16;
+                    if (lastlind == 0) {
+                        lastlin = lastlin + 1;
+                    }
+                    myfile.write(&lastlin, 1);
+                    myfile.write(&lastlind, 1);
+                    myfile.write(&memblock[12], findice - 12);
 
-                    i++;
+                    int i = 1;
+                    int t = 4;
+                    char newposhex = startingbit;
+                    while (i < (lineas - linusu))
+                    {
+                        int tmp = memblock[findice + t - 5];
+                        int tmpdos = memblock[findice + t - 1];
+                        string tempura = int_to_hex(tmp);
+                        tmp = stoi(tempura, 0, 16);
+                        if (i != 1) {
+                            tmp = tmp + 16;
+                        }
+                        string tempurados = int_to_hex(tmpdos);
+                        tmpdos = stoi(tempurados, 0, 16);
+                        tmpdos = tmpdos + 16;
+                        if (tmp > 255) {
+                            tmp = tmp - 256;
+                        }
+                        if (tmpdos > 255) {
+                            tmpdos = tmpdos - 256;
+                        }
+                        if (tmp > tmpdos) {
+                            newposhex++;
+                        }
+                        char dirindi = poshex;
+                        char dirando = newposhex;
+                        myfile.write(&valres[0], 2);
+                        myfile.write(&dirando, 1);
+                        myfile.write(&dirindi, 1);
+
+                        poshex = memblock[findice + t] * 1024 + memblock[findice + t + 1] * 512 + memblock[findice + t + 2] * 256 + memblock[findice + t + 3];
+                        t = t + 4;
+                        linhex = int_to_hex(poshex);
+                        poshex = stoi(linhex, 0, 16);
+                        poshex = poshex + 16;
+
+                        i++;
+                    }
+                    //Escribir despues de modificar el indice:
+
+                    t = t - 4;
+                    myfile.write(&memblock[findice + t], bileng - myfile.tellp()); //Escribe el original hasta el bit de longitud
+                    myfile.write(&nleng, 1); //Escribe el tamaño de memoria del tamaño de la translation
+                    myfile.write(&memblock[bileng + 1], liemp - myfile.tellp()); //Sigue escribiendo el ori hasta el liemp (restando lo ya avanzado)
+                    myfile.write(&traduc[0], nleng); //Inserta la traduccion
+                    int restlin = 48 - nleng;
+                    int version = memblock[13]; //Get ftd version
+                    if (version == 1){
+                        restlin = 44 - nleng;
+                    }
+                    myfile.write(&valres[0], restlin); //Como es de menor tamaño, rellena los bits faltantes con el array ese chungo que he echo.
+                    //Para la posicion de memblock es la suma de todos los tamaños anteriores, y para el tamaño es "end" - el memblock.
+                    int pls = myfile.tellp();
+                    myfile.write(&memblock[pls - 16], fin - myfile.tellp() + 16);
+
                 }
-                //Escribir despues de modificar el indice:
-
-                t = t - 4;
-                myfile.write(&memblock[findice + t], bileng - myfile.tellp()); //Escribe el original hasta el bit de longitud
-                myfile.write(&nleng, 1); //Escribe el tamaño de memoria del tamaño de la translation
-                myfile.write(&memblock[bileng + 1], liemp - myfile.tellp()); //Sigue escribiendo el ori hasta el liemp (restando lo ya avanzado)
-                myfile.write(&traduc[0], nleng); //Inserta la traduccion
-                int restlin = 48 - nleng;
-                int version = memblock[13]; //Get ftd version
-                if (version == 1){
-                    restlin = 44 - nleng;
-                }
-                myfile.write(&valres[0], restlin); //Como es de menor tamaño, rellena los bits faltantes con el array ese chungo que he echo.
-                //Para la posicion de memblock es la suma de todos los tamaños anteriores, y para el tamaño es "end" - el memblock.
-                int pls = myfile.tellp();
-                myfile.write(&memblock[pls - 32], fin - myfile.tellp() + 32);
-
-            }
-            msgBox.exec();
-            myfile.close();
-        }
-        else {
-            myfile.open(ruta, ios::binary | ios::trunc);
-            if (myfile.is_open())
-            {
-                myfile.seekp(0, std::ios::beg); //Puntero al inicio
-                myfile.write(&memblock[0], bileng); //Escribe el original hasta el bit de longitud
-                myfile.write(&nleng, 1); //Escribe el tamaño de memoria del tamaño de la translation
-                myfile.write(&memblock[bileng + 1], liemp - (bileng + 1)); //Sigue escribiendo el ori hasta el liemp (restando lo ya avanzado)
-                myfile.write(&traduc[0], nleng); //Inserta la traduccion
-                //Para la posicion de memblock es la suma de todos los tamaños anteriores, y para el tamaño es "end" - el memblock.
-                myfile.write(&memblock[myfile.tellp()], fin - myfile.tellp());
                 msgBox.exec();
                 myfile.close();
+            }
+            else {
+                myfile.open(ruta, ios::binary | ios::trunc);
+                if (myfile.is_open())
+                {
+                    myfile.seekp(0, std::ios::beg); //Puntero al inicio
+                    myfile.write(&memblock[0], bileng); //Escribe el original hasta el bit de longitud
+                    myfile.write(&nleng, 1); //Escribe el tamaño de memoria del tamaño de la translation
+                    myfile.write(&memblock[bileng + 1], liemp - (bileng + 1)); //Sigue escribiendo el ori hasta el liemp (restando lo ya avanzado)
+                    myfile.write(&traduc[0], nleng); //Inserta la traduccion
+                    //Para la posicion de memblock es la suma de todos los tamaños anteriores, y para el tamaño es "end" - el memblock.
+                    myfile.write(&memblock[myfile.tellp()], fin - myfile.tellp());
+                    msgBox.exec();
+                    myfile.close();
+                }
+            }
+        }
+        else if (leng > 28) { // Si la frase original ocupa 3 lineas
+            if (nleng > 44) {
+                msgBox.setText("New line takes 4 lines or more. Not supported for now.");
+                msgBox.exec();
+                    exit(EXIT_FAILURE);
+            }
+            else {
+                myfile.open(ruta, ios::binary | ios::trunc);
+                if (myfile.is_open())
+                {
+                    myfile.seekp(0, std::ios::beg); //Puntero al inicio
+                    myfile.write(&memblock[0], bileng); //Escribe el original hasta el bit de longitud
+                    myfile.write(&nleng, 1); //Escribe el tamaño de memoria del tamaño de la translation
+                    myfile.write(&memblock[bileng + 1], liemp - (bileng + 1)); //Sigue escribiendo el ori hasta el liemp (restando lo ya avanzado)
+                    myfile.write(&traduc[0], nleng); //Inserta la traduccion
+                    //Para la posicion de memblock es la suma de todos los tamaños anteriores, y para el tamaño es "end" - el memblock.
+                    myfile.write(&memblock[myfile.tellp()], fin - myfile.tellp());
+                    msgBox.exec();
+                    myfile.close();
+                }
+            }
+        }
+        else { // Si la frase original ocupa 1 lineas
+            if (nleng > 12 && nleng <= 28) { // Y la nueva 2
+                myfile.open(ruta, ios::binary | ios::trunc);
+                if (myfile.is_open())
+                {
+                    myfile.seekp(0, std::ios::beg);
+                    myfile.write(&memblock[0], 10);
+
+                    char lastlin = memblock[10];
+                    char lastlind = memblock[11];
+                    lastlind = lastlind + 16;
+                    if (lastlind == 0) {
+                        lastlin = lastlin + 1;
+                    }
+                    myfile.write(&lastlin, 1);
+                    myfile.write(&lastlind, 1);
+                    myfile.write(&memblock[12], findice - 12);
+
+                    int i = 1;
+                    int t = 4;
+                    char newposhex = startingbit;
+                    while (i < (lineas - linusu))
+                    {
+                        int tmp = memblock[findice + t - 5];
+                        int tmpdos = memblock[findice + t - 1];
+                        string tempura = int_to_hex(tmp);
+                        tmp = stoi(tempura, 0, 16);
+                        if (i != 1) {
+                            tmp = tmp + 16;
+                        }
+                        string tempurados = int_to_hex(tmpdos);
+                        tmpdos = stoi(tempurados, 0, 16);
+                        tmpdos = tmpdos + 16;
+                        if (tmp > 255) {
+                            tmp = tmp - 256;
+                        }
+                        if (tmpdos > 255) {
+                            tmpdos = tmpdos - 256;
+                        }
+                        if (tmp > tmpdos) {
+                            newposhex++;
+                        }
+                        char dirindi = poshex;
+                        char dirando = newposhex;
+                        myfile.write(&valres[0], 2);
+                        myfile.write(&dirando, 1);
+                        myfile.write(&dirindi, 1);
+
+                        poshex = memblock[findice + t] * 1024 + memblock[findice + t + 1] * 512 + memblock[findice + t + 2] * 256 + memblock[findice + t + 3];
+                        t = t + 4;
+                        linhex = int_to_hex(poshex);
+                        poshex = stoi(linhex, 0, 16);
+                        poshex = poshex + 16;
+
+                        i++;
+                    }
+                    //Escribir despues de modificar el indice:
+
+                    t = t - 4;
+                    myfile.write(&memblock[findice + t], bileng - myfile.tellp()); //Escribe el original hasta el bit de longitud
+                    myfile.write(&nleng, 1); //Escribe el tamaño de memoria del tamaño de la translation
+                    myfile.write(&memblock[bileng + 1], liemp - myfile.tellp()); //Sigue escribiendo el ori hasta el liemp (restando lo ya avanzado)
+                    myfile.write(&traduc[0], nleng); //Inserta la traduccion
+                    int restlin = 32 - nleng;
+                    int version = memblock[13]; //Get ftd version
+                    if (version == 1){
+                        restlin = 28 - nleng;
+                    }
+                    myfile.write(&valres[0], restlin); //Como es de menor tamaño, rellena los bits faltantes con el array ese chungo que he echo.
+                    //Para la posicion de memblock es la suma de todos los tamaños anteriores, y para el tamaño es "end" - el memblock.
+                    int pls = myfile.tellp();
+                    myfile.write(&memblock[pls - 16], fin - myfile.tellp() + 16);
+
+                }
+                msgBox.exec();
+                myfile.close();
+            }
+            else if (nleng > 32) { // Y la nueva 3
+                myfile.open(ruta, ios::binary | ios::trunc);
+                if (myfile.is_open())
+                {
+                    myfile.seekp(0, std::ios::beg);
+                    myfile.write(&memblock[0], 10);
+
+                    char lastlin = memblock[10];
+                    char lastlind = memblock[11];
+                    lastlind = lastlind + 32;
+                    if ((lastlind == 16) || (lastlind == 0)) {
+                        lastlin = lastlin + 1;
+                    }
+                    myfile.write(&lastlin, 1);
+                    myfile.write(&lastlind, 1);
+                    myfile.write(&memblock[12], findice - 12);
+
+                    int i = 1;
+                    int t = 4;
+                    char newposhex = startingbit;
+                    poshex = poshex + 16;
+                    while (i < (lineas - linusu))
+                    {
+                        int tmp = memblock[findice + t - 5];
+                        int tmpdos = memblock[findice + t - 1];
+                        string tempura = int_to_hex(tmp);
+                        tmp = stoi(tempura, 0, 16);
+                        if (i != 1) {
+                            tmp = tmp + 32;
+                        }
+                        string tempurados = int_to_hex(tmpdos);
+                        tmpdos = stoi(tempurados, 0, 16);
+                        tmpdos = tmpdos + 32;
+                        if (tmp > 255) {
+                            tmp = tmp - 256;
+                        }
+                        if (tmpdos > 255) {
+                            tmpdos = tmpdos - 256;
+                        }
+                        if (tmp > tmpdos) {
+                            newposhex++;
+                        }
+                        char dirindi = poshex;
+                        char dirando = newposhex;
+                        myfile.write(&valres[0], 2);
+                        myfile.write(&dirando, 1);
+                        myfile.write(&dirindi, 1);
+
+                        poshex = memblock[findice + t] * 1024 + memblock[findice + t + 1] * 512 + memblock[findice + t + 2] * 256 + memblock[findice + t + 3];
+                        t = t + 4;
+                        linhex = int_to_hex(poshex);
+                        poshex = stoi(linhex, 0, 16);
+                        poshex = poshex + 32;
+
+                        i++;
+                    }
+                    //Escribir despues de modificar el indice:
+
+                    t = t - 4;
+                    myfile.write(&memblock[findice + t], bileng - myfile.tellp()); //Escribe el original hasta el bit de longitud
+                    myfile.write(&nleng, 1); //Escribe el tamaño de memoria del tamaño de la translation
+                    myfile.write(&memblock[bileng + 1], liemp - myfile.tellp()); //Sigue escribiendo el ori hasta el liemp (restando lo ya avanzado)
+                    myfile.write(&traduc[0], nleng); //Inserta la traduccion
+                    int restlin = 48 - nleng;
+                    int version = memblock[13]; //Get ftd version
+                    if (version == 1){
+                        restlin = 44 - nleng;
+                    }
+                    myfile.write(&valres[0], restlin); //Como es de menor tamaño, rellena los bits faltantes con el array ese chungo que he echo.
+                    //Para la posicion de memblock es la suma de todos los tamaños anteriores, y para el tamaño es "end" - el memblock.
+                    int pls = myfile.tellp();
+                    myfile.write(&memblock[pls - 32], fin - myfile.tellp() + 32);
+
+                }
+                msgBox.exec();
+                myfile.close();
+            }
+            else {
+                myfile.open(ruta, ios::binary | ios::trunc);
+                if (myfile.is_open())
+                {
+                    myfile.seekp(0, std::ios::beg); //Puntero al inicio
+                    myfile.write(&memblock[0], bileng); //Escribe el original hasta el bit de longitud
+                    myfile.write(&nleng, 1); //Escribe el tamaño de memoria del tamaño de la translation
+                    myfile.write(&memblock[bileng + 1], liemp - (bileng + 1)); //Sigue escribiendo el ori hasta el liemp (restando lo ya avanzado)
+                    myfile.write(&traduc[0], nleng); //Inserta la traduccion
+                    //Para la posicion de memblock es la suma de todos los tamaños anteriores, y para el tamaño es "end" - el memblock.
+                    myfile.write(&memblock[myfile.tellp()], fin - myfile.tellp());
+                    msgBox.exec();
+                    myfile.close();
+                }
             }
         }
     }

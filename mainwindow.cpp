@@ -20,6 +20,9 @@ string linhexplus;
 int currentline;
 bool fileopen = false;
 bool listitemclicked = false;
+bool ctd = false;
+int startingByte;
+int blockLength;
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -45,10 +48,11 @@ string int_to_hex(int i);
 void savetosame(int leng, string traduc, int liemp, string ruta, char* memblock, int fin);
 void savetoless(int leng, string traduc, int liemp, string ruta, char* memblock, int fin, int bileng, int linusu, int lineas);
 void savetomore(int leng, string traduc, int liemp, string ruta, char* memblock, int fin, int bileng, int linusu, int lineas);
+void saveCtd(string traduc, string ruta, char* memblock);
 
 void MainWindow::on_actionOpen_triggered()
 {
-    QString filename = QFileDialog::getOpenFileName(this, "Open file","",tr("FTD files (*.ftd)"));
+    QString filename = QFileDialog::getOpenFileName(this, "Open file","",tr("FTD files (*.ftd *.ctd)"));
     ruta = filename.toUtf8().constData();
     ui->list->clear();
     openfile(ruta);
@@ -113,53 +117,87 @@ void MainWindow::openfile(string ruta){
         linhex = linhexplus + linhex;
         lineas = stoi(linhex, 0, 16); //Convert hex string to int (maybe this is not necesary but ¯\_(ツ)_/¯)
         juntohex.clear(); //Clear the array with the index addreses in case the user opens a new file
+
+        if (lineas == 1){
+            ctd = true;
+        }
+
         int i = 0;
         int offset = 16; // Address where the index starts
         // Get all index and put it in  juntohex
-        while( i < lineas )
-        {
-            int uno = memblock[offset];
-            string suno = int_to_hex(uno);
-            offset++;
-            int dos = memblock[offset];
-            string sdos = int_to_hex(dos);
-            offset++;
-            int tres = memblock[offset];
-            string stres = int_to_hex(tres);
-            offset++;
-            int cuatro = memblock[offset];
-            string scuatro = int_to_hex(cuatro);
+        if (ctd == false){
+            while( i < lineas )
+            {
+                int uno = memblock[offset];
+                string suno = int_to_hex(uno);
+                offset++;
+                int dos = memblock[offset];
+                string sdos = int_to_hex(dos);
+                offset++;
+                int tres = memblock[offset];
+                string stres = int_to_hex(tres);
+                offset++;
+                int cuatro = memblock[offset];
+                string scuatro = int_to_hex(cuatro);
 
-            stringstream test;
-            test << suno << sdos << stres << scuatro;
-            string tojunto(test.str());
-            juntohex.push_back(tojunto);
-            offset++;
-            i++;
+                stringstream test;
+                test << suno << sdos << stres << scuatro;
+                string tojunto(test.str());
+                juntohex.push_back(tojunto);
+                offset++;
+                i++;
+            }
+        }
+        else{
+            lineas = stoi(int_to_hex(memblock[43]), 0, 16);; //Entries of ctd files
+            linp = memblock[10]; // Get complete number of bytes
+            lin = memblock[11];
+            linhexplus =  int_to_hex(linp);
+            linhex = int_to_hex(lin);
+            linhex = linhexplus + linhex;
+            int bytes = stoi(linhex, 0, 16); //Total bytes of ctd files
+            bytes = bytes - 48; //Remove header
+
+            blockLength = bytes / lineas;
         }
 
         int linusu;
         int bileng;
         int listart;
         linusu = 0;
+        if (ctd == true){
+            startingByte = 48;
+        }
+
         vector<string> juntotext;
         stringstream test2;
         i = 0;
+        int leng;
         while(i < lineas)
         {
-            int jint = stoi(juntohex[linusu], 0, 16);
-            if( version == 0){
-                bileng = jint + 7; //Address position that holds the lenght of the current line
+            if (ctd == false){
+                int jint = stoi(juntohex[linusu], 0, 16);
+                if (version == 0){
+                    bileng = jint + 7; //Address position that holds the lenght of the current line
+                }
+                else{
+                    bileng = jint; //Address position that holds the lenght of the current line
+                }
+                if (ctd == true){
+                    bileng = blockLength;
+                }
+                leng = memblock[bileng];
+                if( version == 0){
+                    listart = jint + 16;
+                }
+                else{
+                    listart = jint + 4;
+                }
             }
             else{
-                bileng = jint; //Address position that holds the lenght of the current line
-            }
-            int leng = memblock[bileng];
-            if( version == 0){
-                listart = jint + 16;
-            }
-            else{
-                listart = jint + 4;
+                leng = blockLength;
+                listart = startingByte;
+                startingByte = startingByte + blockLength;
             }
             int index = 0;
             while (index < leng)
@@ -181,6 +219,7 @@ void MainWindow::openfile(string ruta){
             tojuntotext = regex_replace(tojuntotext, std::regex("\\\x84\xAE"), "ú");
             tojuntotext = regex_replace(tojuntotext, std::regex("\\\x84\xA6"), "ñ");
             tojuntotext = regex_replace(tojuntotext, std::regex("\\\x83\xF7"), "Á");
+            tojuntotext = regex_replace(tojuntotext, std::regex("\\\x84\x8F"), "Ú");
             //regular letters after special character, idk why
             tojuntotext = regex_replace(tojuntotext, std::regex("\\\x80\xC1"), "a");
             tojuntotext = regex_replace(tojuntotext, std::regex("\\\x80\xC2"), "b");
@@ -223,6 +262,10 @@ void MainWindow::on_save_clicked()
     QString translation = ui->textedit->text();
     string traduc = translation.toUtf8().constData(); //Get the content of textedit and convert it to string
 
+    if ((traduc.length() == 0)) {
+        return;
+    }
+
     //Check for tildes by hex code of backported font
     traduc = regex_replace(traduc, std::regex("\\á"), "\x84\x96");
     traduc = regex_replace(traduc, std::regex("\\é"), "\x84\x9E");
@@ -231,45 +274,50 @@ void MainWindow::on_save_clicked()
     traduc = regex_replace(traduc, std::regex("\\ú"), "\x84\xAE");
     traduc = regex_replace(traduc, std::regex("\\ñ"), "\x84\xA6");
     traduc = regex_replace(traduc, std::regex("\\Á"), "\x83\xF7");
+    traduc = regex_replace(traduc, std::regex("\\Ú"), "\x84\x8F");
 
-    int linusu = currentline;
-    int jint = stoi(juntohex[linusu], 0, 16);
-    int bileng;
-    int version = memblock[13]; //Get ftd version
-    if( version == 0){
-        bileng = jint + 7; //Address position that holds the lenght of the current line
+    if (ctd){
+        saveCtd(traduc, ruta, memblock);
+        ui->list->clear();
+        openfile(ruta);
     }
     else{
-        bileng = jint; //Address position that holds the lenght of the current line
-    }
-    int leng = memblock[bileng];
-    int liemp;
-    if( version == 0){
-        liemp = jint + 16;
-    }
-    else{
-        liemp = jint + 4;
-    }
+        int linusu = currentline;
+        int jint = stoi(juntohex[linusu], 0, 16);
+        int bileng;
+        int version = memblock[13]; //Get ftd version
+        if( version == 0){
+            bileng = jint + 7; //Address position that holds the lenght of the current line
+        }
+        else{
+            bileng = jint; //Address position that holds the lenght of the current line
+        }
+        int leng = memblock[bileng];
+        int liemp;
+        if( version == 0){
+            liemp = jint + 16;
+        }
+        else{
+            liemp = jint + 4;
+        }
 
-    if ((traduc.length() == 0)) {
-        return;
-    }
-    traduc = traduc + '\0';
-    int newleng = traduc.length();
-    if (newleng == leng) {
-        savetosame(leng, traduc, liemp, ruta, memblock, fin);
-        ui->list->clear();
-        openfile(ruta);
-    }
-    else if (newleng < leng) {
-        savetoless(leng, traduc, liemp, ruta, memblock, fin, bileng, linusu, lineas);
-        ui->list->clear();
-        openfile(ruta);
-    }
-    else {
-        savetomore(leng, traduc, liemp, ruta, memblock, fin, bileng, linusu, lineas);
-        ui->list->clear();
-        openfile(ruta);
+        traduc = traduc + '\0';
+        int newleng = traduc.length();
+        if (newleng == leng) {
+            savetosame(leng, traduc, liemp, ruta, memblock, fin);
+            ui->list->clear();
+            openfile(ruta);
+        }
+        else if (newleng < leng) {
+            savetoless(leng, traduc, liemp, ruta, memblock, fin, bileng, linusu, lineas);
+            ui->list->clear();
+            openfile(ruta);
+        }
+        else {
+            savetomore(leng, traduc, liemp, ruta, memblock, fin, bileng, linusu, lineas);
+            ui->list->clear();
+            openfile(ruta);
+        }
     }
 }
 
@@ -1476,3 +1524,43 @@ void savetomore(int leng, string traduc, int liemp, string ruta, char* memblock,
         }
     }
 }
+
+void saveCtd(string traduc, string ruta, char* memblock){
+    int diff = 64 - traduc.length();
+    string valres = {'\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0' , '\0' , '\0' , '\0' , '\0' , '\0' , '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0'}; //Para añadir ceros, no se me ocurre nada mejor
+    int posByte = blockLength * currentline + 48;
+
+    ofstream myfile;
+    myfile.open(ruta, ios::binary | ios::trunc);
+    if (myfile.is_open())
+    {
+        cout << "Archivo" << endl;
+        myfile.seekp(0, std::ios::beg);
+        myfile.write(&memblock[0], posByte);
+        cout << "1º" << endl;
+        myfile.write(&traduc[0], traduc.length());
+        int i = 0;
+        while (i < diff){
+            myfile.write(&valres[0], 1);
+            i++;
+        }
+        myfile.write(&memblock[posByte + traduc.length() + diff], fin - (posByte + traduc.length() + diff));
+        QMessageBox msgBox;
+        msgBox.setText("Saved");
+        msgBox.exec();
+        myfile.close();
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+

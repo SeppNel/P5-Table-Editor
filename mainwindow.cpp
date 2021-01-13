@@ -41,7 +41,7 @@ MainWindow::~MainWindow()
 void MainWindow::keyPressEvent(QKeyEvent* pe)
 {
     if(pe->key() == Qt::Key_Return) on_save_clicked(); //Save Hotkey
-    if(pe->key() == Qt::Key_Shift) on_list_itemClicked(); // Select Hotckey
+    //if(pe->key() == Qt::Key_Shift) on_list_itemClicked(); // Select Hotckey (Really, fucking shift. You didn't have any other key in the damn keyboard)
 }
 
 string int_to_hex(int i);
@@ -150,13 +150,13 @@ void MainWindow::openfile(string ruta){
         }
         else{
             lineas = stoi(int_to_hex(memblock[43]), 0, 16);; //Entries of ctd files
-            linp = memblock[10]; // Get complete number of bytes
-            lin = memblock[11];
+            linp = memblock[38]; // Get actual number of bytes
+            lin = memblock[39];
             linhexplus =  int_to_hex(linp);
             linhex = int_to_hex(lin);
             linhex = linhexplus + linhex;
             int bytes = stoi(linhex, 0, 16); //Total bytes of ctd files
-            bytes = bytes - 48; //Remove header
+
 
             blockLength = bytes / lineas;
         }
@@ -204,7 +204,6 @@ void MainWindow::openfile(string ruta){
             {
                 char filine = memblock[listart];
                 test2 << filine; //Store all characters of the line and save them
-
                 listart++;
                 index++;
             }
@@ -228,7 +227,7 @@ void MainWindow::openfile(string ruta){
             tojuntotext = regex_replace(tojuntotext, std::regex("\\\x80\xC5"), "e");
             tojuntotext = regex_replace(tojuntotext, std::regex("\\\x80\xC6"), "f");
 
-            QString Qjuntext = QString::fromUtf8(tojuntotext.c_str());
+            QString Qjuntext = QString::fromStdString(tojuntotext);
             QString array[lineas];
             array[i].append(Qjuntext); //Append the current line to the array
             ui->list->addItem(array[i]); //Add item to the listview
@@ -245,7 +244,7 @@ void MainWindow::on_list_itemClicked()
 {
     QString lintotmp = ui->list->currentItem()->text();
     currentline = ui->list->currentRow();
-    string lintoed = lintotmp.toUtf8().constData();
+    string lintoed = lintotmp.toStdString();
     ui->textedit->setText(lintotmp); // Add the selected item to the TextEdit
     listitemclicked = true;
 }
@@ -260,7 +259,9 @@ void MainWindow::on_save_clicked()
     }
 
     QString translation = ui->textedit->text();
-    string traduc = translation.toUtf8().constData(); //Get the content of textedit and convert it to string
+    string traduc = translation.toStdString(); //Get the content of textedit and convert it to string
+    cout << traduc << endl;
+
 
     if ((traduc.length() == 0)) {
         return;
@@ -1526,7 +1527,7 @@ void savetomore(int leng, string traduc, int liemp, string ruta, char* memblock,
 }
 
 void saveCtd(string traduc, string ruta, char* memblock){
-    int diff = 64 - traduc.length();
+    int diff = blockLength - traduc.length();
     string valres = {'\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0' , '\0' , '\0' , '\0' , '\0' , '\0' , '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0'}; //Para añadir ceros, no se me ocurre nada mejor
     int posByte = blockLength * currentline + 48;
 
@@ -1534,10 +1535,8 @@ void saveCtd(string traduc, string ruta, char* memblock){
     myfile.open(ruta, ios::binary | ios::trunc);
     if (myfile.is_open())
     {
-        cout << "Archivo" << endl;
         myfile.seekp(0, std::ios::beg);
         myfile.write(&memblock[0], posByte);
-        cout << "1º" << endl;
         myfile.write(&traduc[0], traduc.length());
         int i = 0;
         while (i < diff){

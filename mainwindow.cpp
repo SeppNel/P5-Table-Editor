@@ -9,6 +9,7 @@
 #include <QStringList>
 #include <QSignalMapper>
 #include <regex>
+#include <QMimeData>
 
 using namespace std;
 string ruta;
@@ -30,8 +31,37 @@ MainWindow::MainWindow(QWidget *parent)
     , ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
-
+    setAcceptDrops(true);
 }
+
+void MainWindow::dragEnterEvent(QDragEnterEvent *e)
+{
+    if (e->mimeData()->hasUrls()) {
+        e->acceptProposedAction();
+    }
+}
+
+void MainWindow::dropEvent(QDropEvent *e)
+{
+    foreach (const QUrl &url, e->mimeData()->urls()) {
+        ruta = url.toLocalFile().toStdString();
+        cout << "Dropped file: " << ruta << endl;
+        string ext = ruta.substr(ruta.find_last_of(".") + 1);
+        if(ext == "ftd" || ext == "ctd") {
+            ui->list->clear();
+            openfile(ruta);
+            fileopen = true;
+        }
+        else {
+            QMessageBox msgBox;
+            msgBox.setText("Only .ftd and .ctd files");
+            msgBox.exec();
+        }
+    }
+}
+
+
+
 
 MainWindow::~MainWindow()
 {

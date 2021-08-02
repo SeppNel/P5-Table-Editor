@@ -24,6 +24,7 @@ bool ctd = false;
 int startingByte;
 int blockLength;
 
+
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
@@ -79,7 +80,7 @@ string int_to_hex(int i)
     }
     else if (result.length() == 4) {
         return result;
-    }
+    } // IDK How or why this works, but it does.
     else if (result[0, 1, 2, 3, 4, 5] == 'f') {
         result.erase(0, 6);
         return result;
@@ -150,11 +151,13 @@ void MainWindow::openfile(string ruta){
         }
         else{
             lineas = stoi(int_to_hex(memblock[43]), 0, 16);; //Entries of ctd files
+            int linf = memblock[37];
             linp = memblock[38]; // Get actual number of bytes
             lin = memblock[39];
+            string linhexf = int_to_hex(linf);
             linhexplus =  int_to_hex(linp);
             linhex = int_to_hex(lin);
-            linhex = linhexplus + linhex;
+            linhex = linhexf + linhexplus + linhex;
             int bytes = stoi(linhex, 0, 16); //Total bytes of ctd files
 
 
@@ -218,7 +221,14 @@ void MainWindow::openfile(string ruta){
             tojuntotext = regex_replace(tojuntotext, std::regex("\\\x84\xAE"), "ú");
             tojuntotext = regex_replace(tojuntotext, std::regex("\\\x84\xA6"), "ñ");
             tojuntotext = regex_replace(tojuntotext, std::regex("\\\x83\xF7"), "Á");
+            tojuntotext = regex_replace(tojuntotext, std::regex("\\\x83\xFF"), "É");
+            tojuntotext = regex_replace(tojuntotext, std::regex("\\\x84\x83"), "Í");
+            tojuntotext = regex_replace(tojuntotext, std::regex("\\\x84\x89"), "Ó");
             tojuntotext = regex_replace(tojuntotext, std::regex("\\\x84\x8F"), "Ú");
+            tojuntotext = regex_replace(tojuntotext, std::regex("\\\x84\x87"), "Ñ");
+            tojuntotext = regex_replace(tojuntotext, std::regex("\\\x83\xE3"), "º");
+            tojuntotext = regex_replace(tojuntotext, std::regex("\\\x83\xF5"), "¿");
+            tojuntotext = regex_replace(tojuntotext, std::regex("\\\x83\xDB"), "¡");
             //regular letters after special character, idk why
             tojuntotext = regex_replace(tojuntotext, std::regex("\\\x80\xC1"), "a");
             tojuntotext = regex_replace(tojuntotext, std::regex("\\\x80\xC2"), "b");
@@ -226,6 +236,12 @@ void MainWindow::openfile(string ruta){
             tojuntotext = regex_replace(tojuntotext, std::regex("\\\x80\xC4"), "d");
             tojuntotext = regex_replace(tojuntotext, std::regex("\\\x80\xC5"), "e");
             tojuntotext = regex_replace(tojuntotext, std::regex("\\\x80\xC6"), "f");
+            tojuntotext = regex_replace(tojuntotext, std::regex("\\\x80\xA1"), "A");
+            tojuntotext = regex_replace(tojuntotext, std::regex("\\\x80\xA2"), "B");
+            tojuntotext = regex_replace(tojuntotext, std::regex("\\\x80\xA3"), "C");
+            tojuntotext = regex_replace(tojuntotext, std::regex("\\\x80\xA4"), "D");
+            tojuntotext = regex_replace(tojuntotext, std::regex("\\\x80\xA5"), "E");
+            tojuntotext = regex_replace(tojuntotext, std::regex("\\\x80\xA6"), "F");
 
             QString Qjuntext = QString::fromStdString(tojuntotext);
             QString array[lineas];
@@ -244,9 +260,225 @@ void MainWindow::on_list_itemClicked()
 {
     QString lintotmp = ui->list->currentItem()->text();
     currentline = ui->list->currentRow();
-    string lintoed = lintotmp.toStdString();
-    ui->textedit->setText(lintotmp); // Add the selected item to the TextEdit
+    ui->textedit->setText(lintotmp.toUtf8()); // Add the selected item to the TextEdit
     listitemclicked = true;
+    ui->textedit->setFocus();
+}
+
+void MainWindow::on_delete_element_clicked(){
+    QMessageBox::StandardButton reply;
+    reply = QMessageBox::question(this, "Confirm", "Delete this element?", QMessageBox::Yes|QMessageBox::No);
+    if (reply == QMessageBox::Yes) {
+        cout << "Yes was clicked"<< endl;
+
+        int linusu = currentline;
+        int jint = stoi(juntohex[linusu], 0, 16);
+        int bileng;
+        int version = memblock[13]; //Get ftd version
+        if( version == 0){
+            bileng = jint + 7; //Address position that holds the lenght of the current line
+        }
+        else{
+            bileng = jint; //Address position that holds the lenght of the current line
+        }
+        int leng = memblock[bileng];
+        int liemp;
+        int rest;
+        int lastminus;
+        if( version == 0){
+            liemp = jint + 16;
+
+            if (leng <= 16){
+                lastminus = 16;
+                rest = 16 - leng;
+            }
+            else if (leng <= 32){
+                lastminus = 32;
+                rest = 32 - leng;
+            }
+            else if (leng <= 48){
+                lastminus = 48;
+                rest = 48 - leng;
+            }
+            else if (leng <= 64){
+                lastminus = 64;
+                rest = 64 - leng;
+            }
+            else{
+                QMessageBox msgBox;
+                msgBox.setText("Not supported");
+                msgBox.exec();
+            }
+        }
+        else{
+            liemp = jint + 4;
+
+            if (leng <= 12){
+                lastminus = 16;
+                rest = 12 - leng;
+            }
+            else if (leng <= 28){
+                lastminus = 32;
+                rest = 28 - leng;
+            }
+            else if (leng <= 44){
+                lastminus = 48;
+                rest = 44 - leng;
+            }
+            else if (leng <= 60){
+                lastminus = 64;
+                rest = 60 - leng;
+            }
+            else{
+                QMessageBox msgBox;
+                msgBox.setText("Not supported");
+                msgBox.exec();
+            }
+        }
+
+        ofstream myfile;
+        myfile.open(ruta, ios::binary | ios::trunc);
+        if (myfile.is_open())
+        {
+            cout << "dentro" << endl;
+            myfile.seekp(0, std::ios::beg);
+
+
+            myfile.write(&memblock[0], 10);
+            char lastlin = memblock[10];
+            char lastlind = memblock[11];
+            lastlind = lastlind - lastminus;
+            if (lastlind == -16) {
+                lastlin = lastlin - 1;
+            }
+            myfile.write(&lastlin, 1);
+            myfile.write(&lastlind, 1); //Update last line
+
+            myfile.write(&memblock[12], 2);
+
+            char numlineF = memblock[14];
+            char numlineS = memblock[15];
+            if (numlineS == -16) {
+                numlineF = numlineF - 1;
+            }
+            numlineS = numlineS - 1;
+
+            myfile.write(&numlineF, 1);
+            myfile.write(&numlineS, 1); //Update num of elements
+
+            int findice = 16 + 4 * (linusu + 1);
+            cout << "Findice" << findice << endl;
+
+            myfile.write(&memblock[16], findice - 16); //Write until first index to change
+
+
+            string valres = {'\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0' , '\0' , '\0' , '\0' , '\0' , '\0' , '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0'}; //To add ceros, I really can't think of a better way
+
+            int test = memblock[findice + 3];
+            string lintest = int_to_hex(test);
+            test = stoi(lintest, 0, 16);
+
+            int poshex = memblock[findice] * 1024 + memblock[findice + 1] * 512 + memblock[findice + 2] * 256 + test;
+
+            //string linhex = int_to_hex(poshex);
+            string linhex;
+            //poshex = stoi(linhex, 0, 16);
+            //poshex = poshex - 16;
+            cout << "Primer poshex" << poshex << endl;
+            int startingbit = memblock[findice - 2];
+            int i = 1;
+            int t = 4;
+            char newposhex = startingbit;
+            while (i < (lineas - linusu))
+            {
+                cout << "start while" << endl;
+                int tmp = memblock[findice + t - 5];
+                int tmpdos = memblock[findice + t - 1];
+                cout << tmpdos << endl;
+                string tempura = int_to_hex(tmp);
+                tmp = stoi(tempura, 0, 16);
+                if (i != 1) {
+                    tmp = tmp - lastminus;
+                }
+                else{
+
+                    int test = memblock[findice + t + 3];
+
+                    int test2 = memblock[findice + t + 2] * 256;
+
+                    poshex = memblock[findice + t] * 1024 + memblock[findice + t + 1] * 512 + test2 + test;
+                    t = t + 4;
+                    poshex = poshex - lastminus;
+
+                    i++;
+                    continue;
+                }
+                string tempurados = int_to_hex(tmpdos);
+                tmpdos = stoi(tempurados, 0, 16);
+                tmpdos = tmpdos - lastminus;
+                if (tmp < 0) {
+                    tmp = tmp + 256;
+                }
+                if (tmpdos < 0) {
+                    tmpdos = tmpdos + 256;
+                }
+                if (tmp > tmpdos) {
+                    newposhex++;
+                }
+                cout << "dirndi" << endl;
+                char dirindi = poshex;
+                char dirando = newposhex;
+                myfile.write(&valres[0], 2);
+                myfile.write(&dirando, 1);
+                myfile.write(&dirindi, 1);
+
+                cout << "end dirndi" << endl;
+
+                int test = memblock[findice + t + 3];
+                //string lintest = int_to_hex(test);
+                //test = stoi(lintest, 0, 16);
+
+                int test2 = memblock[findice + t + 2] * 256;
+                //string lintest2 = int_to_hex(test2);
+                //test2 = stoi(lintest2, 0, 16);
+
+                cout << "Aqui: " << endl;
+
+                poshex = memblock[findice + t] * 1024 + memblock[findice + t + 1] * 512 + test2 + test;
+                t = t + 4;
+                cout << "poshex: " << poshex << endl;
+                //linhex = int_to_hex(poshex);
+                //cout << "int to hex" << endl;
+                //poshex = stoi(linhex, 0, 16);
+                poshex = poshex - lastminus;
+
+                cout << "end while" << endl;
+
+                i++;
+            }
+            cout << "end index" << endl;
+
+            myfile.write(&valres[0],4);
+
+            //After changing index:
+
+            myfile.write(&memblock[findice + t - 4], jint - (findice + t - 4));
+            myfile.write(&memblock[liemp + leng + rest], fin - (liemp + leng + rest));
+            QMessageBox msgBox;
+            msgBox.setText("Deleted");
+            msgBox.exec();
+            myfile.close();
+        }
+
+        cout << "fuera";
+        ui->list->clear();
+        openfile(ruta);
+
+
+    }
+    else {
+        cout << "Yes was *not* clicked";
+    }
 }
 
 void MainWindow::on_save_clicked()
@@ -275,7 +507,11 @@ void MainWindow::on_save_clicked()
     traduc = regex_replace(traduc, std::regex("\\ú"), "\x84\xAE");
     traduc = regex_replace(traduc, std::regex("\\ñ"), "\x84\xA6");
     traduc = regex_replace(traduc, std::regex("\\Á"), "\x83\xF7");
+    traduc = regex_replace(traduc, std::regex("\\É"), "\x83\xFF");
     traduc = regex_replace(traduc, std::regex("\\Ú"), "\x84\x8F");
+    traduc = regex_replace(traduc, std::regex("\\º"), "\x83\xE3");
+    traduc = regex_replace(traduc, std::regex("\\¿"), "\x83\xF5");
+    traduc = regex_replace(traduc, std::regex("\\¡"), "\x83\xDB");
 
     if (ctd){
         saveCtd(traduc, ruta, memblock);

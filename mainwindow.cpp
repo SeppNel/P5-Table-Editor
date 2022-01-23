@@ -1,23 +1,18 @@
 #include "mainwindow.h"
 #include "./ui_mainwindow.h"
-
 #include <iostream>
 #include <fstream>
-#include <string>
-#include <sstream>
-#include <vector>
-#include <QStringList>
-#include <QSignalMapper>
 #include <regex>
 #include <QMimeData>
+#include <QDebug>
+#include <QString>
+#include <math.h>
 
 using namespace std;
 string ruta;
 char* memblock;
 vector<string> juntohex;
 int fin;
-int lineas;
-string linhexplus;
 int currentline;
 bool fileopen = false;
 bool listitemclicked = false;
@@ -45,7 +40,6 @@ void MainWindow::dropEvent(QDropEvent *e)
 {
     foreach (const QUrl &url, e->mimeData()->urls()) {
         ruta = url.toLocalFile().toStdString();
-        cout << "Dropped file: " << ruta << endl;
         string ext = ruta.substr(ruta.find_last_of(".") + 1);
         if(ext == "ftd" || ext == "ctd") {
             ui->list->clear();
@@ -75,10 +69,11 @@ void MainWindow::keyPressEvent(QKeyEvent* pe)
     //if(pe->key() == Qt::Key_Shift) on_list_itemClicked(); // Select Hotckey (Really, fucking shift. You didn't have any other key in the damn keyboard)
 }
 
+void swapByteOrder(unsigned int& ui);
 string int_to_hex(int i);
 void savetosame(int leng, string traduc, int liemp, string ruta, char* memblock, int fin);
-void savetoless(int leng, string traduc, int liemp, string ruta, char* memblock, int fin, int bileng, int linusu, int lineas);
-void savetomore(int leng, string traduc, int liemp, string ruta, char* memblock, int fin, int bileng, int linusu, int lineas);
+void savetoless(int leng, string traduc, int liemp, string ruta, char* memblock, int fin, int bileng, int linusu);
+void savetomore(int leng, string traduc, int liemp, string ruta, char* memblock, int fin, int bileng, int linusu);
 void saveCtd(string traduc, string ruta, char* memblock);
 
 void MainWindow::on_actionOpen_triggered()
@@ -91,34 +86,7 @@ void MainWindow::on_actionOpen_triggered()
 }
 
 
-string int_to_hex(int i)
-{
-    //Convert an int to a string with its hex value
-    stringstream stream;
-    stream << hex << i;
-    string result(stream.str());
-    //Then adapt the format to be 2 characters
-    if (result.length() == 1) {
-        result.insert(result.begin(), '0');
-        return result;
-    }
-    else if (result.length() == 2) {
-        return result;
-    }
-    else if (result.length() == 3) {
-        return result;
-    }
-    else if (result.length() == 4) {
-        return result;
-    } // IDK How or why this works, but it does.
-    else if (result[0, 1, 2, 3, 4, 5] == 'f') {
-        result.erase(0, 6);
-        return result;
-    }
-    else {
-        exit(EXIT_FAILURE);
-    }
-}
+
 
 
 void MainWindow::openfile(string ruta){
@@ -136,17 +104,7 @@ void MainWindow::openfile(string ruta){
         file.close();
 
         int version = memblock[13]; //Get ftd version
-        int linp = memblock[14]; // Get complete number of lines, bakka!
-        if (linp > 0){
-            linhexplus =  int_to_hex(linp);
-        }
-        else{
-            linhexplus = ""; //Reset if new file open
-        }
-        int lin = memblock[15]; //Save the number of lines
-        string linhex = int_to_hex(lin);
-        linhex = linhexplus + linhex;
-        lineas = stoi(linhex, 0, 16); //Convert hex string to int (maybe this is not necesary but ¯\_(ツ)_/¯)
+        int lineas = ((uchar)(memblock[14]) << 8) + (uchar)memblock[15];
         juntohex.clear(); //Clear the array with the index addreses in case the user opens a new file
 
         if (lineas == 1){
@@ -156,8 +114,8 @@ void MainWindow::openfile(string ruta){
         int i = 0;
         int offset = 16; // Address where the index starts
         // Get all index and put it in  juntohex
-        if (ctd == false){
-            while( i < lineas )
+        if (!ctd){
+            while(i < lineas)
             {
                 int uno = memblock[offset];
                 string suno = int_to_hex(uno);
@@ -180,25 +138,18 @@ void MainWindow::openfile(string ruta){
             }
         }
         else{
-            lineas = stoi(int_to_hex(memblock[43]), 0, 16);; //Entries of ctd files
-            int linf = memblock[37];
-            linp = memblock[38]; // Get actual number of bytes
-            lin = memblock[39];
-            string linhexf = int_to_hex(linf);
-            linhexplus =  int_to_hex(linp);
-            linhex = int_to_hex(lin);
-            linhex = linhexf + linhexplus + linhex;
-            int bytes = stoi(linhex, 0, 16); //Total bytes of ctd files
-
-
+            lineas = ((uchar)(memblock[42]) << 8) + (uchar)memblock[43];
+            uint bytes = ((uchar)(memblock[37]) << 16) + ((uchar)(memblock[38]) << 8) + (uchar)memblock[39];
             blockLength = bytes / lineas;
         }
+
+
 
         int linusu;
         int bileng;
         int listart;
         linusu = 0;
-        if (ctd == true){
+        if (ctd){
             startingByte = 48;
         }
 
@@ -208,7 +159,7 @@ void MainWindow::openfile(string ruta){
         int leng;
         while(i < lineas)
         {
-            if (ctd == false){
+            if (!ctd){
                 int jint = stoi(juntohex[linusu], 0, 16);
                 if (version == 0){
                     bileng = jint + 7; //Address position that holds the lenght of the current line
@@ -242,7 +193,6 @@ void MainWindow::openfile(string ruta){
             }
             string tojuntotext(test2.str()); //String that holds the current full line
 
-            //cout << tojuntotext << endl;
             //Check for tildes by hex code of backported font
             tojuntotext = regex_replace(tojuntotext, std::regex("\\\x84\x96"), "á");
             tojuntotext = regex_replace(tojuntotext, std::regex("\\\x84\x9E"), "é");
@@ -296,224 +246,231 @@ void MainWindow::on_list_itemClicked()
 }
 
 void MainWindow::on_delete_element_clicked(){
+    if (!fileopen || !listitemclicked){
+        QMessageBox msgBox;
+        msgBox.setText("You need to open a file and select a line.");
+        msgBox.exec();
+        return;
+    }
+
     QMessageBox::StandardButton reply;
     reply = QMessageBox::question(this, "Confirm", "Delete this element?", QMessageBox::Yes|QMessageBox::No);
     if (reply == QMessageBox::Yes) {
-        cout << "Yes was clicked"<< endl;
+        if(!ctd){
+            int jint = stoi(juntohex[currentline], 0, 16);
+            int bileng;
+            int version = memblock[13]; //Get ftd version
 
-        int linusu = currentline;
-        int jint = stoi(juntohex[linusu], 0, 16);
-        int bileng;
-        int version = memblock[13]; //Get ftd version
-        if( version == 0){
-            bileng = jint + 7; //Address position that holds the lenght of the current line
-        }
-        else{
-            bileng = jint; //Address position that holds the lenght of the current line
-        }
-        int leng = memblock[bileng];
-        int liemp;
-        int rest;
-        int lastminus;
-        if( version == 0){
-            liemp = jint + 16;
-
-            if (leng <= 16){
-                lastminus = 16;
-                rest = 16 - leng;
-            }
-            else if (leng <= 32){
-                lastminus = 32;
-                rest = 32 - leng;
-            }
-            else if (leng <= 48){
-                lastminus = 48;
-                rest = 48 - leng;
-            }
-            else if (leng <= 64){
-                lastminus = 64;
-                rest = 64 - leng;
+            if(version == 0){
+                bileng = jint + 7; //Address position that holds the lenght of the current line
             }
             else{
-                QMessageBox msgBox;
-                msgBox.setText("Not supported");
-                msgBox.exec();
+                bileng = jint; //Address position that holds the lenght of the current line
             }
-        }
-        else{
-            liemp = jint + 4;
+            int leng = memblock[bileng];
+            int liemp;
+            int rest;
+            int lastminus;
+            int lineas = ((uchar)(memblock[14]) << 8) + (uchar)memblock[15];
+            if(version == 0){
+                liemp = jint + 16;
 
-            if (leng <= 12){
-                lastminus = 16;
-                rest = 12 - leng;
-            }
-            else if (leng <= 28){
-                lastminus = 32;
-                rest = 28 - leng;
-            }
-            else if (leng <= 44){
-                lastminus = 48;
-                rest = 44 - leng;
-            }
-            else if (leng <= 60){
-                lastminus = 64;
-                rest = 60 - leng;
-            }
-            else{
-                QMessageBox msgBox;
-                msgBox.setText("Not supported");
-                msgBox.exec();
-            }
-        }
-
-        ofstream myfile;
-        myfile.open(ruta, ios::binary | ios::trunc);
-        if (myfile.is_open())
-        {
-            cout << "dentro" << endl;
-            myfile.seekp(0, std::ios::beg);
-
-
-            myfile.write(&memblock[0], 10);
-            char lastlin = memblock[10];
-            char lastlind = memblock[11];
-            lastlind = lastlind - lastminus;
-            if (lastlind == -16) {
-                lastlin = lastlin - 1;
-            }
-            myfile.write(&lastlin, 1);
-            myfile.write(&lastlind, 1); //Update last line
-
-            myfile.write(&memblock[12], 2);
-
-            char numlineF = memblock[14];
-            char numlineS = memblock[15];
-            if (numlineS == -16) {
-                numlineF = numlineF - 1;
-            }
-            numlineS = numlineS - 1;
-
-            myfile.write(&numlineF, 1);
-            myfile.write(&numlineS, 1); //Update num of elements
-
-            int findice = 16 + 4 * (linusu + 1);
-            cout << "Findice" << findice << endl;
-
-            myfile.write(&memblock[16], findice - 16); //Write until first index to change
-
-
-            string valres = {'\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0' , '\0' , '\0' , '\0' , '\0' , '\0' , '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0'}; //To add ceros, I really can't think of a better way
-
-            int test = memblock[findice + 3];
-            string lintest = int_to_hex(test);
-            test = stoi(lintest, 0, 16);
-
-            int poshex = memblock[findice] * 1024 + memblock[findice + 1] * 512 + memblock[findice + 2] * 256 + test;
-
-            //string linhex = int_to_hex(poshex);
-            string linhex;
-            //poshex = stoi(linhex, 0, 16);
-            //poshex = poshex - 16;
-            cout << "Primer poshex" << poshex << endl;
-            int startingbit = memblock[findice - 2];
-            int i = 1;
-            int t = 4;
-            char newposhex = startingbit;
-            while (i < (lineas - linusu))
-            {
-                cout << "start while" << endl;
-                int tmp = memblock[findice + t - 5];
-                int tmpdos = memblock[findice + t - 1];
-                cout << tmpdos << endl;
-                string tempura = int_to_hex(tmp);
-                tmp = stoi(tempura, 0, 16);
-                if (i != 1) {
-                    tmp = tmp - lastminus;
+                int indx = ceil(leng / 16.0);
+                rest = (16 * indx) - leng;
+                if (lineas % 4 == 1){
+                    lastminus = 16 * (indx + 2);
                 }
                 else{
-
-                    int test = memblock[findice + t + 3];
-
-                    int test2 = memblock[findice + t + 2] * 256;
-
-                    poshex = memblock[findice + t] * 1024 + memblock[findice + t + 1] * 512 + test2 + test;
-                    t = t + 4;
-                    poshex = poshex - lastminus;
-
-                    i++;
-                    continue;
+                    lastminus = 16 * (indx + 1);
                 }
-                string tempurados = int_to_hex(tmpdos);
-                tmpdos = stoi(tempurados, 0, 16);
-                tmpdos = tmpdos - lastminus;
-                if (tmp < 0) {
-                    tmp = tmp + 256;
-                }
-                if (tmpdos < 0) {
-                    tmpdos = tmpdos + 256;
-                }
-                if (tmp > tmpdos) {
-                    newposhex++;
-                }
-                cout << "dirndi" << endl;
-                char dirindi = poshex;
-                char dirando = newposhex;
-                myfile.write(&valres[0], 2);
-                myfile.write(&dirando, 1);
-                myfile.write(&dirindi, 1);
 
-                cout << "end dirndi" << endl;
-
-                int test = memblock[findice + t + 3];
-                //string lintest = int_to_hex(test);
-                //test = stoi(lintest, 0, 16);
-
-                int test2 = memblock[findice + t + 2] * 256;
-                //string lintest2 = int_to_hex(test2);
-                //test2 = stoi(lintest2, 0, 16);
-
-                cout << "Aqui: " << endl;
-
-                poshex = memblock[findice + t] * 1024 + memblock[findice + t + 1] * 512 + test2 + test;
-                t = t + 4;
-                cout << "poshex: " << poshex << endl;
-                //linhex = int_to_hex(poshex);
-                //cout << "int to hex" << endl;
-                //poshex = stoi(linhex, 0, 16);
-                poshex = poshex - lastminus;
-
-                cout << "end while" << endl;
-
-                i++;
             }
-            cout << "end index" << endl;
+            else{
+                liemp = jint + 4;
 
-            myfile.write(&valres[0],4);
+                if (leng <= 12){
+                    lastminus = 16;
+                    rest = 12 - leng;
+                }
+                else if (leng <= 28){
+                    lastminus = 32;
+                    rest = 28 - leng;
+                }
+                else if (leng <= 44){
+                    lastminus = 48;
+                    rest = 44 - leng;
+                }
+                else if (leng <= 60){
+                    lastminus = 64;
+                    rest = 60 - leng;
+                }
+                else{
+                    QMessageBox msgBox;
+                    msgBox.setText("Not supported");
+                    msgBox.exec();
+                }
+            }
 
-            //After changing index:
+            ofstream myfile;
+            myfile.open(ruta, ios::binary | ios::trunc);
+            if (myfile.is_open())
+            {
+                myfile.seekp(0, std::ios::beg);
+                myfile.write(&memblock[0], 8);
 
-            myfile.write(&memblock[findice + t - 4], jint - (findice + t - 4));
-            myfile.write(&memblock[liemp + leng + rest], fin - (liemp + leng + rest));
-            QMessageBox msgBox;
-            msgBox.setText("Deleted");
-            msgBox.exec();
-            myfile.close();
+                uint lastLine = ((uchar)(memblock[8]) << 24) +((uchar)(memblock[9]) << 16) + ((uchar)(memblock[10]) << 8) + (uchar)(memblock[11]);
+                lastLine = lastLine - lastminus;
+                swapByteOrder(lastLine);
+                myfile.write(reinterpret_cast<char*>(&lastLine), sizeof(lastLine));
+
+                myfile.write(&memblock[12], 2);
+
+                char numlineF = memblock[14];
+                char numlineS = memblock[15];
+                if (numlineS == -16) {
+                    numlineF = numlineF - 1;
+                }
+                numlineS = numlineS - 1;
+
+                myfile.write(&numlineF, 1);
+                myfile.write(&numlineS, 1); //Update num of elements
+
+                int findice = 16 + 4 * (currentline + 1);
+
+                //If the new index is 1 line shorter adapt the offset table
+                if (lineas % 4 == 1){
+                    int index = 16;
+                    int i = 0;
+                    while(i <= currentline){
+                        uint currentIndex = ((uchar)(memblock[index]) << 24) + ((uchar)(memblock[index + 1]) << 16) + ((uchar)(memblock[index + 2]) << 8) + (uchar)memblock[index + 3];
+                        currentIndex = currentIndex - 0x10;
+                        swapByteOrder(currentIndex);
+                        if (currentline + 1 == lineas && i == currentline){
+                            //Do nothing
+                        }
+                        else{
+                            myfile.write(reinterpret_cast<char*>(&currentIndex), sizeof(currentIndex));
+                        }
+
+
+                        index = index + 4;
+                        i++;
+                    }
+                }
+                else{
+                    if (currentline + 1 == lineas){
+                        myfile.write(&memblock[16], findice - 20); //If last one, write all except last
+                    }
+                    else{
+                        myfile.write(&memblock[16], findice - 16); //Write until first index to change
+                    }
+                }
+
+                //To add ceros, This is fucking stupid
+                string valres = {'\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0' , '\0' , '\0' , '\0' , '\0' , '\0' , '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0'};
+
+                int currentIndex = ((uchar)(memblock[findice - 4]) << 24) + ((uchar)(memblock[findice - 3]) << 16) + ((uchar)(memblock[findice - 2]) << 8) + (uchar)memblock[findice - 1];
+
+                int nextIndex = ((uchar)(memblock[findice]) << 24) + ((uchar)(memblock[findice + 1]) << 16) + ((uchar)(memblock[findice + 2]) << 8) + (uchar)memblock[findice + 3];
+
+                int diff = nextIndex - currentIndex;;
+                //If the new index is 1 line shorter add 0x10 to account for it.
+                if (lineas % 4 == 1){
+                    diff = diff + 0x10;
+                }
+                //cout << diff << endl;
+
+                int cIndice = findice;
+                if (currentline + 1 != lineas){
+                    int i = 0;
+                    while (i < (lineas - currentline - 2))
+                    {
+                        int nextIndex = ((uchar)(memblock[cIndice + 4]) << 24) + ((uchar)(memblock[cIndice + 5]) << 16) + ((uchar)(memblock[cIndice + 6]) << 8) + (uchar)memblock[cIndice + 7];
+                        uint newIndex = nextIndex - diff;
+                        swapByteOrder(newIndex);
+
+                        myfile.write(reinterpret_cast<char*>(&newIndex), sizeof(newIndex));
+
+                        cIndice = cIndice + 4;
+                        i++;
+                    }
+                }
+                else{
+                    cIndice = cIndice - 4;
+                }
+
+                   cout << findice << endl;
+                int stopIndex = (char)(cIndice & 0x0F);
+                int ceros = 12;
+                if(stopIndex == 4){
+                    myfile.write(&valres[0], 12);
+                    ceros = 8;
+                }
+                else if(stopIndex == 8){
+                    myfile.write(&valres[0], 8);
+                    ceros = 4;
+                }
+                else if(stopIndex == 0xC){
+                    myfile.write(&valres[0], 4);
+                    ceros = 0;
+                }
+
+                myfile.write(&memblock[cIndice + 4 + ceros], jint - (cIndice + 4 + ceros));
+                myfile.write(&memblock[liemp + leng + rest], fin - (liemp + leng + rest));
+
+                myfile.close();
+            }
+        }
+        else{
+            int newOffset = (((uchar)(memblock[10]) << 8) + (uchar)memblock[11]) - blockLength;
+            char newOffsetL = (char)(newOffset & 0xFF);
+            char newOffsetM = (newOffset & 0xFF00) >> 8;
+
+            int lastOffset = newOffset - 0x30;
+            char lastOffsetL = (char)(lastOffset & 0xFF);
+            char lastOffsetM = (lastOffset & 0xFF00) >> 8;
+
+            int newLines = (((uchar)(memblock[42]) << 8) + (uchar)memblock[43]) - 1;
+            char newLinesL = (char)(newLines & 0xFF);
+            char newLinesM = (newLines & 0xFF00) >> 8;
+
+            int lineIndex = 48 + blockLength * currentline;
+
+            ofstream myfile;
+            myfile.open(ruta, ios::binary | ios::trunc);
+            if (myfile.is_open())
+            {
+                myfile.seekp(0, std::ios::beg);
+                myfile.write(&memblock[0], 10);
+                myfile.write(&newOffsetM, 1);
+                myfile.write(&newOffsetL, 1);
+                myfile.write(&memblock[12], 26);
+                myfile.write(&lastOffsetM, 1);
+                myfile.write(&lastOffsetL, 1);
+                myfile.write(&memblock[40], 2);
+                myfile.write(&newLinesM, 1);
+                myfile.write(&newLinesL, 1);
+                myfile.write(&memblock[44], 4);
+                myfile.write(&memblock[48], lineIndex - 48);
+                myfile.write(&memblock[lineIndex + blockLength], fin - lineIndex - blockLength);
+            }
+
         }
 
-        cout << "fuera";
+        QMessageBox msgBox;
+        msgBox.setText("Deleted");
+        msgBox.exec();
+
         ui->list->clear();
         openfile(ruta);
 
 
     }
-    else {
-        cout << "Yes was *not* clicked";
-    }
 }
 
 void MainWindow::on_save_clicked()
 {
-    if (fileopen == false || listitemclicked == false){
+    if (!fileopen || !listitemclicked){
         QMessageBox msgBox;
         msgBox.setText("You need to open a file and select a line.");
         msgBox.exec();
@@ -522,10 +479,9 @@ void MainWindow::on_save_clicked()
 
     QString translation = ui->textedit->text();
     string traduc = translation.toStdString(); //Get the content of textedit and convert it to string
-    cout << traduc << endl;
 
 
-    if ((traduc.length() == 0)) {
+    if (traduc.length() == 0){
         return;
     }
 
@@ -552,40 +508,74 @@ void MainWindow::on_save_clicked()
         int linusu = currentline;
         int jint = stoi(juntohex[linusu], 0, 16);
         int bileng;
-        int version = memblock[13]; //Get ftd version
-        if( version == 0){
-            bileng = jint + 7; //Address position that holds the lenght of the current line
-        }
-        else{
-            bileng = jint; //Address position that holds the lenght of the current line
-        }
-        int leng = memblock[bileng];
         int liemp;
-        if( version == 0){
+        int version = memblock[13]; //Get ftd version
+        if (version == 0){
+            bileng = jint + 7; //Address position that holds the lenght of the current line
             liemp = jint + 16;
         }
         else{
+            bileng = jint; //Address position that holds the lenght of the current line
             liemp = jint + 4;
         }
+        int leng = memblock[bileng];
 
         traduc = traduc + '\0';
         int newleng = traduc.length();
-        if (newleng == leng) {
+        if (newleng == leng){
             savetosame(leng, traduc, liemp, ruta, memblock, fin);
             ui->list->clear();
             openfile(ruta);
         }
-        else if (newleng < leng) {
-            savetoless(leng, traduc, liemp, ruta, memblock, fin, bileng, linusu, lineas);
+        else if (newleng < leng){
+            savetoless(leng, traduc, liemp, ruta, memblock, fin, bileng, linusu);
             ui->list->clear();
             openfile(ruta);
         }
-        else {
-            savetomore(leng, traduc, liemp, ruta, memblock, fin, bileng, linusu, lineas);
+        else{
+            savetomore(leng, traduc, liemp, ruta, memblock, fin, bileng, linusu);
             ui->list->clear();
             openfile(ruta);
         }
     }
+}
+
+string int_to_hex(int i)
+{
+    //Convert an int to a string with its hex value
+    stringstream stream;
+    stream << hex << i;
+    string result(stream.str());
+    //Then adapt the format to be 2 characters
+    if (result.length() == 1) {
+        result.insert(result.begin(), '0');
+        return result;
+    }
+    else if (result.length() == 2) {
+        return result;
+    }
+    else if (result.length() == 3) {
+        return result;
+    }
+    else if (result.length() == 4) {
+        return result;
+    } // IDK How or why this works, but it does.
+    else if (result[0, 1, 2, 3, 4, 5] == 'f') {
+        result.erase(0, 6);
+        return result;
+    }
+    else {
+        exit(EXIT_FAILURE);
+    }
+}
+
+
+void swapByteOrder(unsigned int& ui)
+{
+    ui = (ui >> 24) |
+         ((ui<<8) & 0x00FF0000) |
+         ((ui>>8) & 0x0000FF00) |
+         (ui << 24);
 }
 
 void savetosame(int leng, string traduc, int liemp, string ruta, char* memblock, int fin)
@@ -605,9 +595,10 @@ void savetosame(int leng, string traduc, int liemp, string ruta, char* memblock,
     }
 }
 
-void savetoless(int leng, string traduc, int liemp, string ruta, char* memblock, int fin, int bileng, int linusu, int lineas)
+void savetoless(int leng, string traduc, int liemp, string ruta, char* memblock, int fin, int bileng, int linusu)
 {
     ofstream myfile;
+    int lineas = ((uchar)(memblock[14]) << 8) + (uchar)memblock[15];
     char nleng = traduc.length();
     int resto = leng - nleng;
     int findice = 16 + 4 * (linusu + 1); //Address of the first index to modify
@@ -618,12 +609,13 @@ void savetoless(int leng, string traduc, int liemp, string ruta, char* memblock,
     int startingbit = memblock[findice - 2];
     QMessageBox msgBox;
     msgBox.setText("Saved");
-    string valres = {'\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0' , '\0' , '\0' , '\0' , '\0' , '\0' , '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0'}; //Para añadir ceros, no se me ocurre nada mejor
+    //To add ceros, this is still stupid
+    string valres = {'\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0' , '\0' , '\0' , '\0' , '\0' , '\0' , '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0'};
     int version = memblock[13]; //Get ftd version
     if (version == 0){
-        if (leng > 16) { // Si la frase original es mayor que 1 linea
-            if (leng > 32) { // Si la frase original es mayor que 2 lineas
-                if (nleng > 16 && nleng <= 32) { //This is for when a sentence takes 3 lines and the new one only takes 2.
+        if (leng > 16) { // Original sentence is larger than 1 lines
+            if (leng > 32) { // Original sentence is larger than 2 lines
+                if (nleng > 16 && nleng <= 32) { //Original sentence takes 3 lines and the new one only takes 2.
                     myfile.open(ruta, ios::binary | ios::trunc);
                     if (myfile.is_open())
                     {
@@ -678,7 +670,8 @@ void savetoless(int leng, string traduc, int liemp, string ruta, char* memblock,
 
                             i++;
                         }
-                        //Escribir despues de modificar el indice:
+
+                        //Write content after modifying index:
 
                         t = t - 4;
                         myfile.write(&memblock[findice + t], bileng - myfile.tellp()); //Escribe el original hasta el bit de longitud
@@ -1192,9 +1185,10 @@ void savetoless(int leng, string traduc, int liemp, string ruta, char* memblock,
     }
 }
 
-void savetomore(int leng, string traduc, int liemp, string ruta, char* memblock, int fin, int bileng, int linusu, int lineas)
+void savetomore(int leng, string traduc, int liemp, string ruta, char* memblock, int fin, int bileng, int linusu)
 {
     ofstream myfile;
+    int lineas = ((uchar)(memblock[14]) << 8) + (uchar)memblock[15];
     char nleng = traduc.length();
     int findice = 16 + 4 * (linusu + 1); //Direccion del primer indice a modificar
     int poshex = memblock[findice] * 1024 + memblock[findice + 1] * 512 + memblock[findice + 2] * 256 + memblock[findice + 3];
@@ -1794,7 +1788,9 @@ void savetomore(int leng, string traduc, int liemp, string ruta, char* memblock,
 
 void saveCtd(string traduc, string ruta, char* memblock){
     int diff = blockLength - traduc.length();
-    string valres = {'\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0' , '\0' , '\0' , '\0' , '\0' , '\0' , '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0'}; //Para añadir ceros, no se me ocurre nada mejor
+    //This is still stupid
+    string valres = {'\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0' , '\0' , '\0' , '\0' , '\0' , '\0' , '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0'};
+
     int posByte = blockLength * currentline + 48;
 
     ofstream myfile;
@@ -1816,16 +1812,5 @@ void saveCtd(string traduc, string ruta, char* memblock){
         myfile.close();
     }
 }
-
-
-
-
-
-
-
-
-
-
-
 
 

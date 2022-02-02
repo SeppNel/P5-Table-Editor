@@ -126,7 +126,8 @@ void MainWindow::openfile(string ruta){
 
                 stringstream test;
                 test << suno << sdos << stres << scuatro;
-                string tojunto(test.str());
+                string tojunto = test.str();
+
                 juntohex.push_back(tojunto);
                 offset++;
                 i++;
@@ -296,7 +297,8 @@ void MainWindow::on_delete_element_clicked(){
                 uint numlines = ((uchar)memblock[14] << 8) + (uchar)memblock[15];
                 numlines--;
                 swapByteOrder(numlines);
-                myfile.write(reinterpret_cast<char*>(&numlines), sizeof(numlines));
+                numlines = numlines >> 16; // 2 Byte shift because we only want the 2 least significant bytes
+                myfile.write(reinterpret_cast<char*>(&numlines), 2);
 
                 int findice = 16 + 4 * (currentline + 1);
 
@@ -383,19 +385,21 @@ void MainWindow::on_delete_element_clicked(){
             }
         }
         else{
-            int newOffset = (((uchar)(memblock[10]) << 8) + (uchar)memblock[11]) - blockLength;
-            char newOffsetL = (char)(newOffset & 0xFF);
-            char newOffsetM = (newOffset & 0xFF00) >> 8;
+            uint newOffset = (((uchar)memblock[10] << 8) + (uchar)memblock[11]) - blockLength;
+            uint lastOffset = newOffset - 0x30;
+            uint newLines = (((uchar)(memblock[42]) << 8) + (uchar)memblock[43]) - 1;
 
-            int lastOffset = newOffset - 0x30;
-            char lastOffsetL = (char)(lastOffset & 0xFF);
-            char lastOffsetM = (lastOffset & 0xFF00) >> 8;
+            swapByteOrder(newOffset);
+            newOffset = newOffset >> 16;
 
-            int newLines = (((uchar)(memblock[42]) << 8) + (uchar)memblock[43]) - 1;
-            char newLinesL = (char)(newLines & 0xFF);
-            char newLinesM = (newLines & 0xFF00) >> 8;
+            swapByteOrder(lastOffset);
+            lastOffset = lastOffset >> 16;
+
+            swapByteOrder(newLines);
+            newLines = newLines >> 16;
 
             int lineIndex = 48 + blockLength * currentline;
+
 
             ofstream myfile;
             myfile.open(ruta, ios::binary | ios::trunc);
@@ -403,19 +407,15 @@ void MainWindow::on_delete_element_clicked(){
             {
                 myfile.seekp(0, std::ios::beg);
                 myfile.write(&memblock[0], 10);
-                myfile.write(&newOffsetM, 1);
-                myfile.write(&newOffsetL, 1);
+                myfile.write(reinterpret_cast<char*>(&newOffset), 2);
                 myfile.write(&memblock[12], 26);
-                myfile.write(&lastOffsetM, 1);
-                myfile.write(&lastOffsetL, 1);
+                myfile.write(reinterpret_cast<char*>(&lastOffset), 2);
                 myfile.write(&memblock[40], 2);
-                myfile.write(&newLinesM, 1);
-                myfile.write(&newLinesL, 1);
+                myfile.write(reinterpret_cast<char*>(&newLines), 2);
                 myfile.write(&memblock[44], 4);
                 myfile.write(&memblock[48], lineIndex - 48);
                 myfile.write(&memblock[lineIndex + blockLength], fin - lineIndex - blockLength);
             }
-
         }
 
         QMessageBox msgBox;
@@ -424,8 +424,6 @@ void MainWindow::on_delete_element_clicked(){
 
         ui->list->clear();
         openfile(ruta);
-
-
     }
 }
 

@@ -20,6 +20,12 @@ bool ctd = false;
 int startingByte;
 int blockLength;
 
+void swapByteOrder(unsigned int& ui);
+string int_to_hex(int i);
+void savetosame(int leng, string traduc, int liemp, string ruta, char* memblock, int fin);
+void savetoless(int leng, string traduc, int liemp, string ruta, char* memblock, int fin, int bileng, int linusu);
+void savetomore(int leng, string traduc, int liemp, string ruta, char* memblock, int fin, int bileng, int linusu);
+void saveCtd(string traduc, string ruta, char* memblock);
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -54,9 +60,6 @@ void MainWindow::dropEvent(QDropEvent *e)
     }
 }
 
-
-
-
 MainWindow::~MainWindow()
 {
     delete ui;
@@ -69,12 +72,8 @@ void MainWindow::keyPressEvent(QKeyEvent* pe)
     //if(pe->key() == Qt::Key_Shift) on_list_itemClicked(); // Select Hotckey (Really, fucking shift. You didn't have any other key in the damn keyboard)
 }
 
-void swapByteOrder(unsigned int& ui);
-string int_to_hex(int i);
-void savetosame(int leng, string traduc, int liemp, string ruta, char* memblock, int fin);
-void savetoless(int leng, string traduc, int liemp, string ruta, char* memblock, int fin, int bileng, int linusu);
-void savetomore(int leng, string traduc, int liemp, string ruta, char* memblock, int fin, int bileng, int linusu);
-void saveCtd(string traduc, string ruta, char* memblock);
+
+
 
 void MainWindow::on_actionOpen_triggered()
 {
@@ -84,10 +83,6 @@ void MainWindow::on_actionOpen_triggered()
     openfile(ruta);
     fileopen = true;
 }
-
-
-
-
 
 void MainWindow::openfile(string ruta){
     ifstream file;
@@ -257,25 +252,16 @@ void MainWindow::on_delete_element_clicked(){
     reply = QMessageBox::question(this, "Confirm", "Delete this element?", QMessageBox::Yes|QMessageBox::No);
     if (reply == QMessageBox::Yes) {
         if(!ctd){
+            int liemp, rest, lastminus, leng;
             int jint = stoi(juntohex[currentline], 0, 16);
-            int bileng;
-            int version = memblock[13]; //Get ftd version
-
-            if(version == 0){
-                bileng = jint + 7; //Address position that holds the lenght of the current line
-            }
-            else{
-                bileng = jint; //Address position that holds the lenght of the current line
-            }
-            int leng = memblock[bileng];
-            int liemp;
-            int rest;
-            int lastminus;
             int lineas = ((uchar)(memblock[14]) << 8) + (uchar)memblock[15];
-            if(version == 0){
-                liemp = jint + 16;
 
+            int version = memblock[13]; //Get ftd version
+            if(version == 0){
+                leng = memblock[jint + 7];
                 int indx = ceil(leng / 16.0);
+
+                liemp = jint + 16;
                 rest = (16 * indx) - leng;
                 if (lineas % 4 == 1){
                     lastminus = 16 * (indx + 2);
@@ -283,32 +269,14 @@ void MainWindow::on_delete_element_clicked(){
                 else{
                     lastminus = 16 * (indx + 1);
                 }
-
             }
             else{
-                liemp = jint + 4;
+                leng = memblock[jint];
+                int indx = ceil(leng / 16.0);
 
-                if (leng <= 12){
-                    lastminus = 16;
-                    rest = 12 - leng;
-                }
-                else if (leng <= 28){
-                    lastminus = 32;
-                    rest = 28 - leng;
-                }
-                else if (leng <= 44){
-                    lastminus = 48;
-                    rest = 44 - leng;
-                }
-                else if (leng <= 60){
-                    lastminus = 64;
-                    rest = 60 - leng;
-                }
-                else{
-                    QMessageBox msgBox;
-                    msgBox.setText("Not supported");
-                    msgBox.exec();
-                }
+                liemp = jint + 4;
+                rest = (16 * indx) - 4 - leng;
+                lastminus = 16 * indx;
             }
 
             ofstream myfile;
@@ -325,15 +293,10 @@ void MainWindow::on_delete_element_clicked(){
 
                 myfile.write(&memblock[12], 2);
 
-                char numlineF = memblock[14];
-                char numlineS = memblock[15];
-                if (numlineS == -16) {
-                    numlineF = numlineF - 1;
-                }
-                numlineS = numlineS - 1;
-
-                myfile.write(&numlineF, 1);
-                myfile.write(&numlineS, 1); //Update num of elements
+                uint numlines = ((uchar)memblock[14] << 8) + (uchar)memblock[15];
+                numlines--;
+                swapByteOrder(numlines);
+                myfile.write(reinterpret_cast<char*>(&numlines), sizeof(numlines));
 
                 int findice = 16 + 4 * (currentline + 1);
 
@@ -378,7 +341,6 @@ void MainWindow::on_delete_element_clicked(){
                 if (lineas % 4 == 1){
                     diff = diff + 0x10;
                 }
-                //cout << diff << endl;
 
                 int cIndice = findice;
                 if (currentline + 1 != lineas){
@@ -399,7 +361,6 @@ void MainWindow::on_delete_element_clicked(){
                     cIndice = cIndice - 4;
                 }
 
-                   cout << findice << endl;
                 int stopIndex = (char)(cIndice & 0x0F);
                 int ceros = 12;
                 if(stopIndex == 4){
@@ -505,8 +466,7 @@ void MainWindow::on_save_clicked()
         openfile(ruta);
     }
     else{
-        int linusu = currentline;
-        int jint = stoi(juntohex[linusu], 0, 16);
+        int jint = stoi(juntohex[currentline], 0, 16);
         int bileng;
         int liemp;
         int version = memblock[13]; //Get ftd version
@@ -528,12 +488,12 @@ void MainWindow::on_save_clicked()
             openfile(ruta);
         }
         else if (newleng < leng){
-            savetoless(leng, traduc, liemp, ruta, memblock, fin, bileng, linusu);
+            savetoless(leng, traduc, liemp, ruta, memblock, fin, bileng, currentline);
             ui->list->clear();
             openfile(ruta);
         }
         else{
-            savetomore(leng, traduc, liemp, ruta, memblock, fin, bileng, linusu);
+            savetomore(leng, traduc, liemp, ruta, memblock, fin, bileng, currentline);
             ui->list->clear();
             openfile(ruta);
         }
@@ -569,7 +529,6 @@ string int_to_hex(int i)
     }
 }
 
-
 void swapByteOrder(unsigned int& ui)
 {
     ui = (ui >> 24) |
@@ -588,6 +547,7 @@ void savetosame(int leng, string traduc, int liemp, string ruta, char* memblock,
         myfile.write(&memblock[0], liemp);
         myfile.write(&traduc[0], leng);
         myfile.write(&memblock[liemp + leng], fin - (liemp + leng));
+
         QMessageBox msgBox;
         msgBox.setText("Saved");
         msgBox.exec();
@@ -602,13 +562,10 @@ void savetoless(int leng, string traduc, int liemp, string ruta, char* memblock,
     char nleng = traduc.length();
     int resto = leng - nleng;
     int findice = 16 + 4 * (linusu + 1); //Address of the first index to modify
-    int poshex = memblock[findice] * 1024 + memblock[findice + 1] * 512 + memblock[findice + 2] * 256 + memblock[findice + 3];
-    string linhex = int_to_hex(poshex);
-    poshex = stoi(linhex, 0, 16);
+    uint poshex = ((uchar)memblock[findice] << 24) + ((uchar)memblock[findice + 1] << 16) + ((uchar)memblock[findice + 2] << 8) + (uchar)memblock[findice + 3];
     poshex = poshex - 16;
     int startingbit = memblock[findice - 2];
-    QMessageBox msgBox;
-    msgBox.setText("Saved");
+
     //To add ceros, this is still stupid
     string valres = {'\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0' , '\0' , '\0' , '\0' , '\0' , '\0' , '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0'};
     int version = memblock[13]; //Get ftd version
@@ -662,12 +619,9 @@ void savetoless(int leng, string traduc, int liemp, string ruta, char* memblock,
                             myfile.write(&dirando, 1);
                             myfile.write(&dirindi, 1);
 
-                            poshex = memblock[findice + t] * 1024 + memblock[findice + t + 1] * 512 + memblock[findice + t + 2] * 256 + memblock[findice + t + 3];
-                            t = t + 4;
-                            linhex = int_to_hex(poshex);
-                            poshex = stoi(linhex, 0, 16);
+                            poshex = ((uchar)memblock[findice + t] << 24) + ((uchar)memblock[findice + t + 1] << 16) + ((uchar)memblock[findice + t + 2] << 8) + (uchar)memblock[findice + t + 3];
                             poshex = poshex - 16;
-
+                            t = t + 4;
                             i++;
                         }
 
@@ -689,8 +643,6 @@ void savetoless(int leng, string traduc, int liemp, string ruta, char* memblock,
                         myfile.write(&memblock[pls + 16], fin - myfile.tellp() - 16);
 
                     }
-                    msgBox.exec();
-                    myfile.close();
                 }
                 else if (nleng <= 16) {
                     myfile.open(ruta, ios::binary | ios::trunc);
@@ -741,12 +693,9 @@ void savetoless(int leng, string traduc, int liemp, string ruta, char* memblock,
                             myfile.write(&dirando, 1);
                             myfile.write(&dirindi, 1);
 
-                            poshex = memblock[findice + t] * 1024 + memblock[findice + t + 1] * 512 + memblock[findice + t + 2] * 256 + memblock[findice + t + 3];
-                            t = t + 4;
-                            linhex = int_to_hex(poshex);
-                            poshex = stoi(linhex, 0, 16);
+                            poshex = ((uchar)memblock[findice + t] << 24) + ((uchar)memblock[findice + t + 1] << 16) + ((uchar)memblock[findice + t + 2] << 8) + (uchar)memblock[findice + t + 3];
                             poshex = poshex - 32;
-
+                            t = t + 4;
                             i++;
                         }
                         //Escribir despues de modificar el indice:
@@ -767,8 +716,6 @@ void savetoless(int leng, string traduc, int liemp, string ruta, char* memblock,
                         myfile.write(&memblock[pls + 32], fin - myfile.tellp() - 32);
 
                     }
-                    msgBox.exec();
-                    myfile.close();
                 }
                 else {
                     myfile.open(ruta, ios::binary | ios::trunc);
@@ -782,8 +729,6 @@ void savetoless(int leng, string traduc, int liemp, string ruta, char* memblock,
                         myfile.write(&valres[0], resto); //Como es de menor tamaño, rellena los bits faltantes con el array ese chungo que he echo.
                         //Para la posicion de memblock es la suma de todos los tamaños anteriores, y para el tamaño es "end" - el memblock.
                         myfile.write(&memblock[bileng + 1 + (liemp - (bileng + 1)) + nleng + resto], fin - (bileng + 1 + (liemp - (bileng + 1)) + nleng + resto));
-                        msgBox.exec();
-                        myfile.close();
                     }
                 }
                 return;
@@ -835,12 +780,10 @@ void savetoless(int leng, string traduc, int liemp, string ruta, char* memblock,
                         myfile.write(&dirando, 1);
                         myfile.write(&dirindi, 1);
 
-                        poshex = memblock[findice + t] * 1024 + memblock[findice + t + 1] * 512 + memblock[findice + t + 2] * 256 + memblock[findice + t + 3];
-                        t = t + 4;
-                        linhex = int_to_hex(poshex);
-                        poshex = stoi(linhex, 0, 16);
-                        poshex = poshex - 16;
 
+                        poshex = ((uchar)memblock[findice + t] << 24) + ((uchar)memblock[findice + t + 1] << 16) + ((uchar)memblock[findice + t + 2] << 8) + (uchar)memblock[findice + t + 3];
+                        poshex = poshex - 16;
+                        t = t + 4;
                         i++;
                     }
                     //Escribir despues de modificar el indice:
@@ -861,8 +804,6 @@ void savetoless(int leng, string traduc, int liemp, string ruta, char* memblock,
                     myfile.write(&memblock[pls + 16], fin - myfile.tellp() - 16);
 
                 }
-                msgBox.exec();
-                myfile.close();
             }
             else {
                 myfile.open(ruta, ios::binary | ios::trunc);
@@ -876,8 +817,6 @@ void savetoless(int leng, string traduc, int liemp, string ruta, char* memblock,
                     myfile.write(&valres[0], resto); //Como es de menor tamaño, rellena los bits faltantes con el array ese chungo que he echo.
                     //Para la posicion de memblock es la suma de todos los tamaños anteriores, y para el tamaño es "end" - el memblock.
                     myfile.write(&memblock[bileng + 1 + (liemp - (bileng + 1)) + nleng + resto], fin - (bileng + 1 + (liemp - (bileng + 1)) + nleng + resto));
-                    msgBox.exec();
-                    myfile.close();
                 }
             }
         }
@@ -893,8 +832,6 @@ void savetoless(int leng, string traduc, int liemp, string ruta, char* memblock,
                 myfile.write(&valres[0], resto); //Como es de menor tamaño, rellena los bits faltantes con el array ese chungo que he echo.
                 //Para la posicion de memblock es la suma de todos los tamaños anteriores, y para el tamaño es "end" - el memblock.
                 myfile.write(&memblock[bileng + 1 + (liemp - (bileng + 1)) + nleng + resto], fin - (bileng + 1 + (liemp - (bileng + 1)) + nleng + resto));
-                msgBox.exec();
-                myfile.close();
             }
         }
     }
@@ -948,12 +885,10 @@ void savetoless(int leng, string traduc, int liemp, string ruta, char* memblock,
                             myfile.write(&dirando, 1);
                             myfile.write(&dirindi, 1);
 
-                            poshex = memblock[findice + t] * 1024 + memblock[findice + t + 1] * 512 + memblock[findice + t + 2] * 256 + memblock[findice + t + 3];
-                            t = t + 4;
-                            linhex = int_to_hex(poshex);
-                            poshex = stoi(linhex, 0, 16);
-                            poshex = poshex - 16;
 
+                            poshex = ((uchar)memblock[findice + t] << 24) + ((uchar)memblock[findice + t + 1] << 16) + ((uchar)memblock[findice + t + 2] << 8) + (uchar)memblock[findice + t + 3];
+                            poshex = poshex - 16;
+                            t = t + 4;
                             i++;
                         }
                         //Escribir despues de modificar el indice:
@@ -972,10 +907,7 @@ void savetoless(int leng, string traduc, int liemp, string ruta, char* memblock,
                         //Para la posicion de memblock es la suma de todos los tamaños anteriores, y para el tamaño es "end" - el memblock.
                         int pls = myfile.tellp();
                         myfile.write(&memblock[pls + 16], fin - myfile.tellp() - 16);
-
                     }
-                    msgBox.exec();
-                    myfile.close();
                 }
                 else if (nleng <= 12) {
                     myfile.open(ruta, ios::binary | ios::trunc);
@@ -1026,12 +958,9 @@ void savetoless(int leng, string traduc, int liemp, string ruta, char* memblock,
                             myfile.write(&dirando, 1);
                             myfile.write(&dirindi, 1);
 
-                            poshex = memblock[findice + t] * 1024 + memblock[findice + t + 1] * 512 + memblock[findice + t + 2] * 256 + memblock[findice + t + 3];
-                            t = t + 4;
-                            linhex = int_to_hex(poshex);
-                            poshex = stoi(linhex, 0, 16);
+                            poshex = ((uchar)memblock[findice + t] << 24) + ((uchar)memblock[findice + t + 1] << 16) + ((uchar)memblock[findice + t + 2] << 8) + (uchar)memblock[findice + t + 3];
                             poshex = poshex - 32;
-
+                            t = t + 4;
                             i++;
                         }
                         //Escribir despues de modificar el indice:
@@ -1050,10 +979,7 @@ void savetoless(int leng, string traduc, int liemp, string ruta, char* memblock,
                         //Para la posicion de memblock es la suma de todos los tamaños anteriores, y para el tamaño es "end" - el memblock.
                         int pls = myfile.tellp();
                         myfile.write(&memblock[pls + 32], fin - myfile.tellp() - 32);
-
                     }
-                    msgBox.exec();
-                    myfile.close();
                 }
                 else {
                     myfile.open(ruta, ios::binary | ios::trunc);
@@ -1067,8 +993,6 @@ void savetoless(int leng, string traduc, int liemp, string ruta, char* memblock,
                         myfile.write(&valres[0], resto); //Como es de menor tamaño, rellena los bits faltantes con el array ese chungo que he echo.
                         //Para la posicion de memblock es la suma de todos los tamaños anteriores, y para el tamaño es "end" - el memblock.
                         myfile.write(&memblock[bileng + 1 + (liemp - (bileng + 1)) + nleng + resto], fin - (bileng + 1 + (liemp - (bileng + 1)) + nleng + resto));
-                        msgBox.exec();
-                        myfile.close();
                     }
                 }
                 return;
@@ -1120,12 +1044,9 @@ void savetoless(int leng, string traduc, int liemp, string ruta, char* memblock,
                         myfile.write(&dirando, 1);
                         myfile.write(&dirindi, 1);
 
-                        poshex = memblock[findice + t] * 1024 + memblock[findice + t + 1] * 512 + memblock[findice + t + 2] * 256 + memblock[findice + t + 3];
-                        t = t + 4;
-                        linhex = int_to_hex(poshex);
-                        poshex = stoi(linhex, 0, 16);
+                        poshex = ((uchar)memblock[findice + t] << 24) + ((uchar)memblock[findice + t + 1] << 16) + ((uchar)memblock[findice + t + 2] << 8) + (uchar)memblock[findice + t + 3];
                         poshex = poshex - 16;
-
+                        t = t + 4;
                         i++;
                     }
                     //Escribir despues de modificar el indice:
@@ -1144,10 +1065,7 @@ void savetoless(int leng, string traduc, int liemp, string ruta, char* memblock,
                     //Para la posicion de memblock es la suma de todos los tamaños anteriores, y para el tamaño es "end" - el memblock.
                     int pls = myfile.tellp();
                     myfile.write(&memblock[pls + 16], fin - myfile.tellp() - 16);
-
                 }
-                msgBox.exec();
-                myfile.close();
             }
             else {
                 myfile.open(ruta, ios::binary | ios::trunc);
@@ -1161,8 +1079,6 @@ void savetoless(int leng, string traduc, int liemp, string ruta, char* memblock,
                     myfile.write(&valres[0], resto); //Como es de menor tamaño, rellena los bits faltantes con el array ese chungo que he echo.
                     //Para la posicion de memblock es la suma de todos los tamaños anteriores, y para el tamaño es "end" - el memblock.
                     myfile.write(&memblock[bileng + 1 + (liemp - (bileng + 1)) + nleng + resto], fin - (bileng + 1 + (liemp - (bileng + 1)) + nleng + resto));
-                    msgBox.exec();
-                    myfile.close();
                 }
             }
         }
@@ -1178,11 +1094,15 @@ void savetoless(int leng, string traduc, int liemp, string ruta, char* memblock,
                 myfile.write(&valres[0], resto); //Como es de menor tamaño, rellena los bits faltantes con el array ese chungo que he echo.
                 //Para la posicion de memblock es la suma de todos los tamaños anteriores, y para el tamaño es "end" - el memblock.
                 myfile.write(&memblock[bileng + 1 + (liemp - (bileng + 1)) + nleng + resto], fin - (bileng + 1 + (liemp - (bileng + 1)) + nleng + resto));
-                msgBox.exec();
-                myfile.close();
+
             }
         }
     }
+
+    QMessageBox msgBox;
+    msgBox.setText("Saved");
+    msgBox.exec();
+    myfile.close();
 }
 
 void savetomore(int leng, string traduc, int liemp, string ruta, char* memblock, int fin, int bileng, int linusu)

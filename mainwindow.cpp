@@ -7,6 +7,7 @@
 #include <QDebug>
 #include <QString>
 #include <math.h>
+#include <sstream>
 
 using namespace std;
 string ruta;
@@ -33,6 +34,23 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
     setAcceptDrops(true);
+    QStringList args = QCoreApplication::arguments();
+    if (args.count() > 1) {
+        string tablePath = args[2].toStdString();
+        string txtPath = args[3].toStdString();
+        if (args[1] == "export") {
+            ruta = tablePath;
+            openfile(tablePath);
+            saveAs(txtPath);
+            QApplication::quit();
+        } else if (args[1] == "import") {
+            ruta = tablePath;
+            listitemclicked = true; // Skip the click control
+            openfile(tablePath);
+            importfromCLI(txtPath);
+            QApplication::quit();
+        }
+    }
 }
 
 void MainWindow::dragEnterEvent(QDragEnterEvent *e)
@@ -47,7 +65,7 @@ void MainWindow::dropEvent(QDropEvent *e)
     foreach (const QUrl &url, e->mimeData()->urls()) {
         ruta = url.toLocalFile().toStdString();
         string ext = ruta.substr(ruta.find_last_of(".") + 1);
-        if(ext == "ftd" || ext == "ctd") {
+        if(ext == "ftd" || ext == "ctd" || ext == "FTD" || ext == "CTD") {
             ui->list->clear();
             openfile(ruta);
             fileopen = true;
@@ -68,7 +86,9 @@ MainWindow::~MainWindow()
 
 void MainWindow::keyPressEvent(QKeyEvent* pe)
 {
-    if(pe->key() == Qt::Key_Return) on_save_clicked(); //Save Hotkey
+    QString translation = ui->textedit->text();
+    string traduc = translation.toStdString();
+    if(pe->key() == Qt::Key_Return) on_save_clicked(traduc); //Save Hotkey
     //if(pe->key() == Qt::Key_Shift) on_list_itemClicked(); // Select Hotckey (Really, fucking shift. You didn't have any other key in the damn keyboard)
 }
 
@@ -81,13 +101,13 @@ void MainWindow::on_actionOpen_triggered()
     ruta = filename.toUtf8().constData();
     ui->list->clear();
     openfile(ruta);
-    fileopen = true;
 }
 
 void MainWindow::openfile(string ruta){
     ifstream file;
     file.open(ruta, ios::binary);
     if (file.is_open()) {
+        fileopen = true;
         //Save last address
         file.seekg(0, std::ios::end);
         fin = file.tellg();
@@ -427,7 +447,7 @@ void MainWindow::on_delete_element_clicked(){
     }
 }
 
-void MainWindow::on_save_clicked()
+void MainWindow::on_save_clicked(string traduc)
 {
     if (!fileopen || !listitemclicked){
         QMessageBox msgBox;
@@ -436,8 +456,8 @@ void MainWindow::on_save_clicked()
         return;
     }
 
-    QString translation = ui->textedit->text();
-    string traduc = translation.toStdString(); //Get the content of textedit and convert it to string
+    // QString translation = ui->textedit->text();
+    // string traduc = translation
 
 
     if (traduc.length() == 0){
@@ -551,6 +571,53 @@ void savetosame(int leng, string traduc, int liemp, string ruta, char* memblock,
         msgBox.exec();
         myfile.close();
     }
+}
+
+void MainWindow::saveAs(const string& txtPath) {
+    ofstream outFile(txtPath, ios::out | ios::binary);
+    if (outFile.is_open()) {
+        for (int i = 0; i < ui->list->count(); ++i) {
+            QListWidgetItem* item = ui->list->item(i);
+            outFile << item->text().toStdString() << endl;
+        }
+        outFile.close();
+        cout << "File saved to " << txtPath << endl;
+    } else {
+        cerr << "Failed to open " << txtPath << " for writing." << endl;
+    }
+    exit(0);
+}
+
+void MainWindow::importfromCLI(string txtPath) {
+    cout << "Starting importfromCLI with txtPath: " << txtPath << endl;
+    ifstream inputFile(txtPath);
+    if (inputFile.is_open()) {
+        cout << "File opened successfully." << endl;
+        string line;
+        vector<string> lines;
+        while (getline(inputFile, line)) {
+            lines.push_back(line);
+        }
+        inputFile.close();
+        cout << "File read successfully. Number of lines: " << lines.size() << endl;
+
+        if (lines.size() != ui->list->count()) {
+            cerr << "Mismatch in line count and UI list count." << endl;
+        } else {
+            cout << "Starting to import from txt to .ftd" << endl;
+            for (int i = 0; i < lines.size(); i++) {
+                currentline = i;
+                QString lineToBeChanged = ui->list->item(i)->text();
+                cout << "Old Line: " << lineToBeChanged.toStdString() << endl;
+                cout << "New Line: " << lines[i] << endl;
+                on_save_clicked(lines[i]);
+            }
+        }
+
+    } else {
+        cout << "Failed to open file: " << txtPath << endl;
+    }
+    exit(0);
 }
 
 void savetoless(int leng, string traduc, int liemp, string ruta, char* memblock, int fin, int bileng, int linusu)
@@ -1724,11 +1791,6 @@ void saveCtd(string traduc, string ruta, char* memblock){
             i++;
         }
         myfile.write(&memblock[posByte + traduc.length() + diff], fin - (posByte + traduc.length() + diff));
-        QMessageBox msgBox;
-        msgBox.setText("Saved");
-        msgBox.exec();
         myfile.close();
     }
 }
-
-

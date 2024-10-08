@@ -34,6 +34,7 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
     setAcceptDrops(true);
+    connect(ui->save, &QPushButton::clicked, this, &MainWindow::on_save_clicked_with_save_button);
     QStringList args = QCoreApplication::arguments();
     if (args.count() > 1) {
         string tablePath = args[2].toStdString();
@@ -92,7 +93,11 @@ void MainWindow::keyPressEvent(QKeyEvent* pe)
     //if(pe->key() == Qt::Key_Shift) on_list_itemClicked(); // Select Hotckey (Really, fucking shift. You didn't have any other key in the damn keyboard)
 }
 
-
+void MainWindow::on_save_clicked_with_save_button() {
+    QString translation = ui->textedit->text();
+    string traduc = translation.toStdString();
+    on_save_clicked(traduc);
+} // Well, I need some help -cidqu
 
 
 void MainWindow::on_actionOpen_triggered()

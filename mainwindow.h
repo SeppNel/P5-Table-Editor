@@ -28,6 +28,7 @@ public:
     void importfromCLI(string txtFile);
     void openfile(string ruta);
     void on_save_clicked(string traduc);
+    void on_save_clicked_with_save_button();
 
 private slots:
     void on_actionOpen_triggered();

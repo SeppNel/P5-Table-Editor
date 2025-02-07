@@ -23,14 +23,18 @@ public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
+public:
+    void saveAs(const string& txtPath);
+    void importfromCLI(string txtFile);
+    void openfile(string ruta);
+    void on_save_clicked(string traduc);
+    void on_save_clicked_with_save_button();
+
 private slots:
     void on_actionOpen_triggered();
-    void openfile(string ruta);
+    //void openfile(string ruta);
 
     void on_list_itemClicked();
-
-
-    void on_save_clicked();
     void on_delete_element_clicked();
 
 private:
